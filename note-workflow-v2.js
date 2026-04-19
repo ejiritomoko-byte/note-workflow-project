@@ -13,6 +13,12 @@ const GOAL_LABELS = {
   rewrite: "リライトする"
 };
 
+const PROMPT_TYPE_LABELS = {
+  paid: "有料note用",
+  search: "検索流入用",
+  rewrite: "リライト特化用"
+};
+
 const PRIORITY_ORDER = { 高: 0, 中: 1, 低: 2 };
 const TYPE_ORDER = { rewrite: 0, new: 1 };
 
@@ -58,6 +64,12 @@ const LEGACY_GOAL_MAP = {
   rewrite: "rewrite"
 };
 
+const LEGACY_PROMPT_TYPE_MAP = {
+  paid: "paid",
+  search: "search",
+  rewrite: "rewrite"
+};
+
 const seedItems = [
   {
     id: crypto.randomUUID(),
@@ -78,6 +90,7 @@ const seedItems = [
     nextAction: "タイトルをベネフィット型に直して、無料部分と有料部分の境界を整理する。",
     targetAi: "ChatGPT",
     aiGoal: "rewrite",
+    promptType: "paid",
     archived: false
   },
   {
@@ -99,6 +112,7 @@ const seedItems = [
     nextAction: "タイトルを結論型に変えて、比較表とおすすめの使い分けを再構成する。",
     targetAi: "Claude",
     aiGoal: "rewrite",
+    promptType: "paid",
     archived: false
   },
   {
@@ -120,6 +134,7 @@ const seedItems = [
     nextAction: "冒頭に『言われたことしかやらない』『途中式を書かない』など具体悩みを追加する。",
     targetAi: "ChatGPT",
     aiGoal: "clarity",
+    promptType: "search",
     archived: false
   },
   {
@@ -141,6 +156,7 @@ const seedItems = [
     nextAction: "冒頭に『誰向けか』を明確にして、実体験の損失を先に出す。",
     targetAi: "Claude",
     aiGoal: "rewrite",
+    promptType: "rewrite",
     archived: false
   },
   {
@@ -162,6 +178,7 @@ const seedItems = [
     nextAction: "記事タイトル案を3つ出して、無料記事にするか決める。",
     targetAi: "ChatGPT",
     aiGoal: "draft",
+    promptType: "search",
     archived: false
   }
 ];
@@ -188,9 +205,13 @@ const form = document.getElementById("itemForm");
 const board = document.getElementById("board");
 const statsGrid = document.getElementById("statsGrid");
 const promptOutput = document.getElementById("promptOutput");
+const imagePromptOutput = document.getElementById("imagePromptOutput");
 const currentIdLabel = document.getElementById("currentIdLabel");
 const reviewList = document.getElementById("reviewChecklist");
 const copyPromptBtn = document.getElementById("copyPromptBtn");
+const copyImagePromptBtn = document.getElementById("copyImagePromptBtn");
+const captureUrlInput = document.getElementById("captureUrlInput");
+const captureMemoInput = document.getElementById("captureMemoInput");
 
 init();
 
@@ -241,6 +262,7 @@ function normalizeItem(item) {
     nextAction: String(item.nextAction || ""),
     targetAi: item.targetAi === "Claude" ? "Claude" : "ChatGPT",
     aiGoal: LEGACY_GOAL_MAP[item.aiGoal] || "draft",
+    promptType: LEGACY_PROMPT_TYPE_MAP[item.promptType] || "paid",
     archived: Boolean(item.archived)
   };
 }
@@ -304,7 +326,8 @@ function bindEvents() {
       source: formData.get("source"),
       nextAction: formData.get("nextAction"),
       targetAi: formData.get("targetAi"),
-      aiGoal: formData.get("aiGoal")
+      aiGoal: formData.get("aiGoal"),
+      promptType: formData.get("promptType")
     });
 
     state.items = state.items.map((item) => item.id === updated.id ? updated : item);
@@ -347,6 +370,22 @@ function bindEvents() {
     renderAll();
   });
 
+  document.getElementById("markDoneBtn").addEventListener("click", () => {
+    const selected = getSelectedItem();
+    if (!selected) {
+      return;
+    }
+
+    state.items = state.items.map((item) =>
+      item.id === selected.id
+        ? { ...item, status: "公開OK", nextAction: "投稿完了" }
+        : item
+    );
+
+    saveItems();
+    renderAll();
+  });
+
   document.getElementById("resetBtn").addEventListener("click", () => {
     state.items = structuredClone(seedItems);
     state.selectedId = state.items[0]?.id || null;
@@ -365,7 +404,9 @@ function bindEvents() {
 
   form.addEventListener("input", syncPromptFromForm);
   form.addEventListener("change", syncPromptFromForm);
-  copyPromptBtn.addEventListener("click", copyPromptToClipboard);
+  copyPromptBtn.addEventListener("click", () => copyTextWithFeedback(promptOutput.value || "", copyPromptBtn, promptOutput));
+  copyImagePromptBtn.addEventListener("click", () => copyTextWithFeedback(imagePromptOutput.value || "", copyImagePromptBtn, imagePromptOutput));
+  document.getElementById("captureUrlBtn").addEventListener("click", captureUrlAsItem);
 }
 
 function renderAll() {
@@ -427,6 +468,7 @@ function renderCard(item) {
         <span class="chip">${escapeHtml(TYPE_LABELS[item.type])}</span>
         <span class="chip">${escapeHtml(item.status)}</span>
         <span class="chip">${escapeHtml(item.targetAi)}</span>
+        <span class="chip">${escapeHtml(PROMPT_TYPE_LABELS[item.promptType])}</span>
         ${item.mainKeyword ? `<span class="chip">${escapeHtml(item.mainKeyword)}</span>` : ""}
       </div>
       <p class="card-next">${escapeHtml(preview)}</p>
@@ -445,6 +487,7 @@ function renderForm() {
   if (!item) {
     form.reset();
     promptOutput.value = "";
+    imagePromptOutput.value = "";
     return;
   }
 
@@ -511,21 +554,49 @@ function makeEmptyItem() {
     nextAction: "",
     targetAi: "ChatGPT",
     aiGoal: "draft",
+    promptType: "paid",
     archived: false
   };
 }
 
+function captureUrlAsItem() {
+  const rawUrl = String(captureUrlInput.value || "").trim();
+  const memo = String(captureMemoInput.value || "").trim();
+  if (!rawUrl) {
+    return;
+  }
+
+  const item = makeEmptyItem();
+  item.type = "rewrite";
+  item.status = "ネタ";
+  item.priority = "中";
+  item.source = rawUrl;
+  item.body = memo;
+  item.nextAction = "記事ページを見て、リライト候補かどうか確認する。";
+  item.title = guessTitleFromUrl(rawUrl);
+  item.account = rawUrl.includes("learnfromfailure") ? "learnfromfailure" : "moco_edu_note";
+
+  state.items.unshift(item);
+  state.selectedId = item.id;
+  saveItems();
+  renderAll();
+
+  captureUrlInput.value = "";
+  captureMemoInput.value = "";
+}
+
 function buildPrompt(item) {
+  const introLines = buildPromptIntro(item.promptType);
+
   return [
     `以下の note 記事について、${GOAL_LABELS[item.aiGoal]}のを手伝ってください。`,
-    "特に、無料部分で『続きを読みたい』『買いたい』と思える流れに整えてください。",
-    "狙うキーワードは不自然にならない範囲でタイトルや見出しに反映してください。",
-    "本文の良さは残しつつ、読みにくい部分、弱い導入、伝わりにくい見出しは改善してください。",
+    ...introLines,
     "",
     `タイトル: ${item.title}`,
     `アカウント: ${item.account}`,
     `種別: ${TYPE_LABELS[item.type]}`,
     `進み具合: ${item.status}`,
+    `プロンプトの型: ${PROMPT_TYPE_LABELS[item.promptType]}`,
     item.mainKeyword ? `狙うキーワード: ${item.mainKeyword}` : "",
     item.subKeywords ? `関連キーワード: ${item.subKeywords}` : "",
     item.searchVolume ? `検索ボリューム: ${item.searchVolume}` : "",
@@ -547,19 +618,110 @@ function buildPrompt(item) {
     item.source || "未入力",
     "",
     "やってほしいこと:",
-    "1. タイトル案を3つ出してください。",
-    "2. 見出し構成を読みやすく組み直してください。",
-    "3. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。",
-    "4. 最後に、直す優先順位を3点だけ短くまとめてください。",
+    ...buildPromptTasks(item.promptType),
     "",
     "最後に、次に直すとよい点を短く教えてください。"
   ].join("\n");
+}
+
+function buildPromptIntro(promptType) {
+  if (promptType === "search") {
+    return [
+      "狙うキーワードを不自然にならない範囲でタイトル・見出し・冒頭に反映してください。",
+      "検索で入ってきた読者が、冒頭で離脱しない流れに整えてください。",
+      "本文の良さを残しつつ、検索意図にすぐ答える構成にしてください。"
+    ];
+  }
+
+  if (promptType === "rewrite") {
+    return [
+      "本文の良さや元記事の温度感は残しつつ、読みにくい部分だけを丁寧に直してください。",
+      "導入、結論、見出し、段落の流れを優先的に改善してください。",
+      "弱い説明や飛んでいる論点があれば自然につなぎ直してください。"
+    ];
+  }
+
+  return [
+    "特に、無料部分で『続きを読みたい』『買いたい』と思える流れに整えてください。",
+    "狙うキーワードは不自然にならない範囲でタイトルや見出しに反映してください。",
+    "本文の良さは残しつつ、有料部分へ自然につながる構成にしてください。"
+  ];
+}
+
+function buildPromptTasks(promptType) {
+  if (promptType === "search") {
+    return [
+      "1. タイトル案を3つ出してください。",
+      "2. 検索意図に合う見出し構成に組み直してください。",
+      "3. 冒頭3行を離脱しにくい形に書き換えてください。",
+      "4. 最後に、検索流入を伸ばすための改善点を3つだけまとめてください。"
+    ];
+  }
+
+  if (promptType === "rewrite") {
+    return [
+      "1. タイトル案を3つ出してください。",
+      "2. 見出し構成を読みやすく組み直してください。",
+      "3. 元記事の良さを残しつつ、弱い導入と読みにくい箇所を改善してください。",
+      "4. 最後に、直す優先順位を3点だけ短くまとめてください。"
+    ];
+  }
+
+  return [
+    "1. タイトル案を3つ出してください。",
+    "2. 見出し構成を読みやすく組み直してください。",
+    "3. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。",
+    "4. 最後に、直す優先順位を3点だけ短くまとめてください。"
+  ];
+}
+
+function buildImagePrompt(item) {
+  const style = item.account === "learnfromfailure"
+    ? "落ち着いた、知的で少し緊張感のある note サムネイル"
+    : "やわらかく信頼感があり、保護者が読みたくなる note サムネイル";
+
+  const keywordLine = item.mainKeyword ? `メインキーワードは「${item.mainKeyword}」です。` : "";
+  const subKeywordLine = item.subKeywords ? `関連キーワードは「${item.subKeywords}」です。` : "";
+  const titleHint = item.titleIdeas ? `タイトル案の方向性は「${item.titleIdeas.split("\n")[0]}」です。` : "";
+
+  return [
+    "note のメイン画像を作りたいです。",
+    `雰囲気は「${style}」にしてください。`,
+    "ChatGPT の画像生成でそのまま使える、具体的でわかりやすい指示にしてください。",
+    keywordLine,
+    subKeywordLine,
+    titleHint,
+    `記事タイトルは「${item.title}」です。`,
+    `記事の種別は「${TYPE_LABELS[item.type]}」、進み具合は「${item.status}」です。`,
+    "",
+    "画像の要件:",
+    "1. スマホで見ても内容が伝わる構図にする",
+    "2. 文字を入れるなら短く、読みやすくする",
+    "3. note のサムネイルとして自然で、安っぽくしない",
+    "4. 記事内容とずれないビジュアルにする",
+    "",
+    "記事メモ:",
+    item.body || "未入力",
+    "",
+    "この条件に合う画像生成プロンプトを、日本語でそのまま使える形で作成してください。"
+  ].filter(Boolean).join("\n");
+}
+
+function guessTitleFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const lastPath = parsed.pathname.split("/").filter(Boolean).pop() || "新しい項目";
+    return `URL追加: ${lastPath}`;
+  } catch (error) {
+    return "URL追加: リライト候補";
+  }
 }
 
 function syncPromptFromForm() {
   const title = String(form.elements.namedItem("title")?.value || "");
   if (!title) {
     promptOutput.value = "";
+    imagePromptOutput.value = "";
     return;
   }
 
@@ -581,14 +743,15 @@ function syncPromptFromForm() {
     source: String(form.elements.namedItem("source")?.value || ""),
     nextAction: String(form.elements.namedItem("nextAction")?.value || ""),
     targetAi: String(form.elements.namedItem("targetAi")?.value || "ChatGPT"),
-    aiGoal: String(form.elements.namedItem("aiGoal")?.value || "draft")
+    aiGoal: String(form.elements.namedItem("aiGoal")?.value || "draft"),
+    promptType: String(form.elements.namedItem("promptType")?.value || "paid")
   });
 
   promptOutput.value = buildPrompt(draftItem);
+  imagePromptOutput.value = draftItem.targetAi === "ChatGPT" ? buildImagePrompt(draftItem) : "ChatGPT を選ぶと、ここにメイン画像用のプロンプトが表示されます。";
 }
 
-async function copyPromptToClipboard() {
-  const text = promptOutput.value || "";
+async function copyTextWithFeedback(text, button, target) {
   if (!text.trim()) {
     return;
   }
@@ -596,7 +759,7 @@ async function copyPromptToClipboard() {
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
-      showCopySuccess();
+      showCopySuccess(button);
       return;
     }
   } catch (error) {
@@ -617,30 +780,30 @@ async function copyPromptToClipboard() {
   try {
     const copied = document.execCommand("copy");
     if (copied) {
-      showCopySuccess();
+      showCopySuccess(button);
     } else {
-      showCopyFailure();
+      showCopyFailure(button, target);
     }
   } catch (error) {
-    showCopyFailure();
+    showCopyFailure(button, target);
   } finally {
     document.body.removeChild(helper);
   }
 }
 
-function showCopySuccess() {
-  copyPromptBtn.textContent = "コピー済み";
+function showCopySuccess(button) {
+  button.textContent = "コピー済み";
   setTimeout(() => {
-    copyPromptBtn.textContent = "全文コピー";
+    button.textContent = "全文コピー";
   }, 1500);
 }
 
-function showCopyFailure() {
-  copyPromptBtn.textContent = "手動でコピー";
-  promptOutput.focus();
-  promptOutput.select();
+function showCopyFailure(button, target) {
+  button.textContent = "手動でコピー";
+  target.focus();
+  target.select();
   setTimeout(() => {
-    copyPromptBtn.textContent = "全文コピー";
+    button.textContent = "全文コピー";
   }, 2000);
 }
 

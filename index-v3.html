@@ -11,7 +11,7 @@
     <header class="hero">
       <span class="eyebrow">note Memo</span>
       <h1>note記事メモ帳 v3</h1>
-      <p>新規記事とリライト候補を、日本語だけで整理できるようにしたシンプルな管理画面です。</p>
+      <p>新規記事とリライト候補を、日本語だけで整理できるシンプルな管理画面です。</p>
       <div class="hero-actions">
         <button class="primary-btn" id="newItemBtn" type="button">新しい項目を作る</button>
         <button class="ghost-btn" id="exportBtn" type="button">JSONを書き出し</button>
@@ -80,6 +80,24 @@
         </div>
 
         <div class="article-list" id="board"></div>
+      </section>
+
+      <section class="panel quick-guide">
+        <h2>URLから追加</h2>
+        <p>記事ページのURLを貼る用の欄です。親ページではなく、個別記事のURLを残してください。</p>
+        <div class="editor-grid">
+          <label class="full">
+            <span>記事ページURL</span>
+            <input id="captureUrlInput" type="text" placeholder="例: https://note.com/moco_edu_note/n/xxxxxxxxxxxx">
+          </label>
+          <label class="full">
+            <span>取り込みメモ</span>
+            <textarea id="captureMemoInput" rows="3" placeholder="このURLの記事をリライト候補にしたい理由を短くメモ"></textarea>
+          </label>
+          <div class="form-actions full">
+            <button class="primary-btn" id="captureUrlBtn" type="button">URLを元記事に入れて新規追加</button>
+          </div>
+        </div>
       </section>
 
       <section class="panel detail-panel">
@@ -185,10 +203,19 @@
               <option value="rewrite">リライトする</option>
             </select>
           </label>
+          <label>
+            <span>プロンプトの型</span>
+            <select name="promptType">
+              <option value="paid">有料note用</option>
+              <option value="search">検索流入用</option>
+              <option value="rewrite">リライト特化用</option>
+            </select>
+          </label>
 
           <div class="form-actions full">
             <button class="primary-btn" type="submit">保存する</button>
             <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
+            <button class="ghost-btn" type="button" id="markDoneBtn">投稿完了</button>
             <button class="ghost-btn danger-btn" type="button" id="archiveBtn">完了扱いにする</button>
           </div>
         </form>
@@ -207,6 +234,17 @@
           <h3>確認ポイント</h3>
           <ul class="check-list" id="reviewChecklist"></ul>
         </div>
+      </section>
+
+      <section class="panel prompt-panel">
+        <div class="section-head">
+          <div>
+            <h2>メイン画像プロンプト</h2>
+            <p>ChatGPT で画像生成するときのたたき台です。記事内容とキーワードに合わせて自動で作ります。</p>
+          </div>
+          <button class="primary-btn" id="copyImagePromptBtn" type="button">全文コピー</button>
+        </div>
+        <textarea id="imagePromptOutput" rows="10" readonly></textarea>
       </section>
     </main>
   </div>
