@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>note記事メモ帳 v3</title>
+  <link rel="stylesheet" href="note-workflow-v2.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <span class="eyebrow">note Memo</span>
+      <h1>note記事メモ帳 v3</h1>
+      <p>新規記事とリライト候補を、日本語だけで整理できるようにしたシンプルな管理画面です。</p>
+      <div class="hero-actions">
+        <button class="primary-btn" id="newItemBtn" type="button">新しい項目を作る</button>
+        <button class="ghost-btn" id="exportBtn" type="button">JSONを書き出し</button>
+        <button class="ghost-btn" id="resetBtn" type="button">初期データに戻す</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel quick-guide">
+        <h2>使い方</h2>
+        <ol class="guide-list">
+          <li>一覧から1件選ぶか、「新しい項目を作る」を押します。</li>
+          <li>「種別」を `新規記事` か `リライト` にします。</li>
+          <li>「本文・メモ」に下書きやコピペした文章をそのまま入れます。</li>
+          <li>「参照URL・元記事」に見返したいURLや元記事の場所を書きます。</li>
+          <li>「次にやること」を1行で書くと、次の作業が迷いません。</li>
+        </ol>
+      </section>
+
+      <section class="panel stats-panel">
+        <h2>全体の状況</h2>
+        <div class="stats-grid" id="statsGrid"></div>
+      </section>
+
+      <section class="panel list-panel">
+        <div class="section-head">
+          <div>
+            <h2>記事一覧</h2>
+            <p>優先度が高いものから上に出ます。リライト候補もここに入っています。</p>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <label>
+            <span>検索</span>
+            <input id="searchInput" type="search" placeholder="タイトル・本文・次にやることで検索">
+          </label>
+          <label>
+            <span>種別</span>
+            <select id="typeFilter">
+              <option value="all">すべて</option>
+              <option value="new">新規記事</option>
+              <option value="rewrite">リライト</option>
+            </select>
+          </label>
+          <label>
+            <span>進み具合</span>
+            <select id="statusFilter">
+              <option value="all">すべて</option>
+              <option value="ネタ">ネタ</option>
+              <option value="下書き中">下書き中</option>
+              <option value="整え中">整え中</option>
+              <option value="リライト中">リライト中</option>
+              <option value="公開OK">公開OK</option>
+            </select>
+          </label>
+          <label>
+            <span>優先度</span>
+            <select id="priorityFilter">
+              <option value="all">すべて</option>
+              <option value="高">高</option>
+              <option value="中">中</option>
+              <option value="低">低</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="article-list" id="board"></div>
+      </section>
+
+      <section class="panel detail-panel">
+        <div class="section-head">
+          <div>
+            <h2>項目詳細</h2>
+            <p>ここに本文や作業メモを入れます。右下のAI用文章にも自動で反映されます。</p>
+          </div>
+          <span class="current-id" id="currentIdLabel"></span>
+        </div>
+
+        <form id="itemForm" class="editor-grid">
+          <label class="full">
+            <span>タイトル</span>
+            <input name="title" type="text" required>
+          </label>
+          <label>
+            <span>種別</span>
+            <select name="type">
+              <option value="new">新規記事</option>
+              <option value="rewrite">リライト</option>
+            </select>
+          </label>
+          <label>
+            <span>進み具合</span>
+            <select name="status">
+              <option value="ネタ">ネタ</option>
+              <option value="下書き中">下書き中</option>
+              <option value="整え中">整え中</option>
+              <option value="リライト中">リライト中</option>
+              <option value="公開OK">公開OK</option>
+            </select>
+          </label>
+          <label>
+            <span>優先度</span>
+            <select name="priority">
+              <option value="高">高</option>
+              <option value="中">中</option>
+              <option value="低">低</option>
+            </select>
+          </label>
+          <label>
+            <span>締切メモ</span>
+            <input name="due" type="text" placeholder="例: 今週中 / 4月末 / 公開前に確認">
+          </label>
+          <label class="full">
+            <span>本文・メモ</span>
+            <textarea name="body" rows="14" placeholder="下書き、コピペした文章、AIの出力などをそのまま残せます"></textarea>
+          </label>
+          <label class="full">
+            <span>参照URL・元記事</span>
+            <textarea name="source" rows="4" placeholder="元記事URL、参考URL、見返したい記事やデータなど"></textarea>
+          </label>
+          <label class="full">
+            <span>次にやること</span>
+            <textarea name="nextAction" rows="3" placeholder="次の一手を1行で"></textarea>
+          </label>
+          <label>
+            <span>使うAI</span>
+            <select name="targetAi">
+              <option value="ChatGPT">ChatGPT</option>
+              <option value="Claude">Claude</option>
+            </select>
+          </label>
+          <label>
+            <span>AIへの頼み方</span>
+            <select name="aiGoal">
+              <option value="draft">下書きを作る</option>
+              <option value="clarity">わかりやすくする</option>
+              <option value="humanize">AIっぽさを減らす</option>
+              <option value="opinion">意見を強める</option>
+              <option value="rewrite">リライトする</option>
+            </select>
+          </label>
+
+          <div class="form-actions full">
+            <button class="primary-btn" type="submit">保存する</button>
+            <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
+            <button class="ghost-btn danger-btn" type="button" id="archiveBtn">完了扱いにする</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel prompt-panel">
+        <div class="section-head">
+          <div>
+            <h2>AIに渡す文章</h2>
+            <p>項目詳細の内容から自動で作られます。ここをそのまま次のAIに貼れます。</p>
+          </div>
+        </div>
+        <textarea id="promptOutput" rows="14" readonly></textarea>
+        <div class="check-box">
+          <h3>確認ポイント</h3>
+          <ul class="check-list" id="reviewChecklist"></ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="note-workflow-v2.js"></script>
+</body>
+</html>
