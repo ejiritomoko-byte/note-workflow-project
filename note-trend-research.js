@@ -184,6 +184,10 @@ const themeTokens = document.getElementById("themeTokens");
 const tagTokens = document.getElementById("tagTokens");
 const patternList = document.getElementById("patternList");
 const observationList = document.getElementById("observationList");
+const searchInput = document.getElementById("searchInput");
+const sourceFilter = document.getElementById("sourceFilter");
+const statusFilter = document.getElementById("statusFilter");
+const sortSelect = document.getElementById("sortSelect");
 const officialList = document.getElementById("officialList");
 const watchlist = document.getElementById("watchlist");
 const form = document.getElementById("observationForm");
@@ -317,42 +321,40 @@ function saveProfile() {
 }
 
 function bindEvents() {
-  document.getElementById("searchInput").addEventListener("input", (event) => {
+  searchInput.addEventListener("input", (event) => {
     state.filters.search = event.target.value.trim().toLowerCase();
     renderObservationList();
   });
 
-  document.getElementById("sourceFilter").addEventListener("change", (event) => {
+  sourceFilter.addEventListener("change", (event) => {
     state.filters.sourceType = event.target.value;
     renderObservationList();
   });
 
-  document.getElementById("statusFilter").addEventListener("change", (event) => {
+  statusFilter.addEventListener("change", (event) => {
     state.filters.status = event.target.value;
     renderObservationList();
   });
 
-  document.getElementById("sortSelect").addEventListener("change", (event) => {
+  sortSelect.addEventListener("change", (event) => {
     state.filters.sort = event.target.value;
     renderObservationList();
   });
 
-  document.getElementById("newObservationBtn").addEventListener("click", () => {
-    const item = makeEmptyItem();
-    state.items.unshift(item);
-    state.selectedId = item.id;
-    saveItems();
-    renderAll();
+  bindButtonAction("newObservationBtn", () => {
+    createNewObservation();
+    return "新しい観測を追加しました。";
   });
 
-  document.getElementById("fetchLatestBtn").addEventListener("click", async () => {
+  bindButtonAction("fetchLatestBtn", async () => {
     await fetchLatestSources();
-  });
+    return null;
+  }, "最新データを取得中です...");
 
-  document.getElementById("duplicateBtn").addEventListener("click", () => {
+  bindButtonAction("duplicateBtn", () => {
     const selected = getSelectedItem();
     if (!selected) {
-      return;
+      return "複製する観測がありません。";
     }
 
     const duplicate = {
@@ -365,68 +367,94 @@ function bindEvents() {
     state.selectedId = duplicate.id;
     saveItems();
     renderAll();
+    return "観測を複製しました。";
   });
 
-  document.getElementById("deleteBtn").addEventListener("click", () => {
+  bindButtonAction("deleteBtn", () => {
     const selected = getSelectedItem();
     if (!selected) {
-      return;
+      return "削除する観測がありません。";
     }
 
     state.items = state.items.filter((item) => item.id !== selected.id);
     state.selectedId = getFilteredItems()[0]?.id || state.items[0]?.id || null;
     saveItems();
     renderAll();
+    return "観測を削除しました。";
   });
 
-  document.getElementById("exportBtn").addEventListener("click", exportItems);
-  document.getElementById("importBtn").addEventListener("click", () => importInput.click());
+  bindButtonAction("exportBtn", () => {
+    exportItems();
+    return "JSONを書き出しました。";
+  });
+
+  bindButtonAction("importBtn", () => {
+    importInput.click();
+    return "読み込むJSONを選択してください。";
+  });
+
   importInput.addEventListener("change", importItems);
 
-  document.getElementById("resetBtn").addEventListener("click", () => {
+  bindButtonAction("resetBtn", () => {
     state.items = structuredClone(DEFAULT_ITEMS);
     state.selectedId = state.items[0]?.id || null;
     saveItems();
     markRefresh("insights");
     markRefresh("feed");
     renderAll();
+    return "サンプルデータに戻しました。";
   });
 
-  document.getElementById("refreshInsightsBtn").addEventListener("click", () => {
+  bindButtonAction("refreshInsightsBtn", () => {
     refreshInsights();
+    return "今見えていることを更新しました。";
   });
 
-  document.getElementById("refreshFeedBtn").addEventListener("click", () => {
+  bindButtonAction("refreshFeedBtn", () => {
     refreshFeed();
+    return "観測フィードを更新しました。";
   });
 
-  document.getElementById("saveProfileBtn").addEventListener("click", () => {
+  bindButtonAction("saveProfileBtn", () => {
     syncProfileFromForm();
     saveProfile();
     renderPersonalGuidance();
+    return "プロフィール設定を保存しました。";
   });
 
-  document.getElementById("presetMocoBtn").addEventListener("click", () => applyProfilePreset("moco"));
-  document.getElementById("presetFailureBtn").addEventListener("click", () => applyProfilePreset("failure"));
+  bindButtonAction("presetMocoBtn", () => {
+    applyProfilePreset("moco");
+    return "moco_edu_note 用の設定に切り替えました。";
+  });
 
-  document.getElementById("copyArticlePlanBtn").addEventListener("click", () => {
+  bindButtonAction("presetFailureBtn", () => {
+    applyProfilePreset("failure");
+    return "learnfromfailure 用の設定に切り替えました。";
+  });
+
+  bindButtonAction("copyArticlePlanBtn", () => {
     copyTextWithFeedback(articlePlanOutput.value);
+    return "記事企画をコピーしました。";
   });
 
-  document.getElementById("copyMonetizationBtn").addEventListener("click", () => {
+  bindButtonAction("copyMonetizationBtn", () => {
     copyTextWithFeedback(monetizationOutput.value);
+    return "収益化プランをコピーしました。";
   });
 
-  document.getElementById("copyThemeIdeasBtn").addEventListener("click", () => {
+  bindButtonAction("copyThemeIdeasBtn", () => {
     copyTextWithFeedback(themeIdeasOutput.value);
+    return "タイトル案をコピーしました。";
   });
 
-  document.getElementById("copyKeywordsBtn").addEventListener("click", () => {
+  bindButtonAction("copyKeywordsBtn", () => {
     copyTextWithFeedback(keywordIdeasOutput.value);
+    return "キーワードをコピーしました。";
   });
 
-  document.getElementById("copyGrowthPlanBtn").addEventListener("click", () => {
+  bindButtonAction("copyGrowthPlanBtn", () => {
     copyTextWithFeedback(growthPlanOutput.value);
+    return "育成プランをコピーしました。";
   });
 
   profileForm.addEventListener("input", () => {
@@ -445,7 +473,36 @@ function bindEvents() {
   });
 }
 
+function bindButtonAction(id, handler, pendingMessage = "", errorMessage = "ボタン処理に失敗しました。") {
+  const button = document.getElementById(id);
+  if (!button) {
+    return;
+  }
+
+  button.addEventListener("click", async () => {
+    const wasDisabled = button.disabled;
+    button.disabled = true;
+
+    if (pendingMessage) {
+      setAppStatus(pendingMessage);
+    }
+
+    try {
+      const message = await handler();
+      if (message) {
+        setAppStatus(message);
+      }
+    } catch (error) {
+      setAppStatus(errorMessage);
+      console.error(error);
+    } finally {
+      button.disabled = wasDisabled;
+    }
+  });
+}
+
 function renderAll() {
+  syncFilterControls();
   renderStats();
   renderObservationList();
   renderForm();
@@ -455,6 +512,13 @@ function renderAll() {
   renderProfileForm();
   renderPersonalGuidance();
   renderRefreshMeta();
+}
+
+function syncFilterControls() {
+  searchInput.value = state.filters.search;
+  sourceFilter.value = state.filters.sourceType;
+  statusFilter.value = state.filters.status;
+  sortSelect.value = state.filters.sort;
 }
 
 function renderRefreshMeta() {
@@ -716,6 +780,23 @@ function syncSelectedItemFromForm() {
   return true;
 }
 
+function createNewObservation() {
+  const item = makeEmptyItem();
+  state.items.unshift(item);
+  state.selectedId = item.id;
+  clearFeedFilters();
+  saveItems();
+  markRefresh("feed");
+  renderAll();
+}
+
+function clearFeedFilters() {
+  state.filters.search = "";
+  state.filters.sourceType = "all";
+  state.filters.status = "all";
+  state.filters.sort = "newest";
+}
+
 function applyProfilePreset(presetKey) {
   state.profile = normalizeProfile(PROFILE_PRESETS[presetKey] || makeDefaultProfile());
   saveProfile();
@@ -745,7 +826,7 @@ function refreshFeed() {
 }
 
 async function fetchLatestSources() {
-  fetchStatusLabel.textContent = "最新データを取得中です...";
+  setAppStatus("最新データを取得中です...");
 
   try {
     syncSelectedItemFromForm();
@@ -759,7 +840,7 @@ async function fetchLatestSources() {
     );
 
     if (!fetchedItems.length) {
-      fetchStatusLabel.textContent = "最新取得に失敗しました。外部取得がブロックされている可能性があります。";
+      setAppStatus("最新取得に失敗しました。外部取得がブロックされている可能性があります。");
       return;
     }
 
@@ -768,9 +849,9 @@ async function fetchLatestSources() {
     markRefresh("insights");
     markRefresh("feed");
     renderAll();
-    fetchStatusLabel.textContent = `${fetchedItems.length} 件の最新候補を取り込みました。`;
+    setAppStatus(`${fetchedItems.length} 件の最新候補を取り込みました。`);
   } catch (error) {
-    fetchStatusLabel.textContent = "最新取得に失敗しました。時間をおいて再度試してください。";
+    setAppStatus("最新取得に失敗しました。時間をおいて再度試してください。");
   }
 }
 
@@ -1569,6 +1650,7 @@ async function importItems(event) {
     state.selectedId = state.items[0]?.id || null;
     saveItems();
     renderAll();
+    setAppStatus("JSONを読み込みました。");
   } catch (error) {
     window.alert("JSONの読み込みに失敗しました。配列形式のJSONを選んでください。");
   } finally {
@@ -1592,4 +1674,8 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function setAppStatus(message) {
+  fetchStatusLabel.textContent = message;
 }
