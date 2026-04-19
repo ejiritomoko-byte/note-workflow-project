@@ -15,12 +15,34 @@
         <p>下書き、比較記事、既存記事のリライトをひとつの画面で管理します。ChatGPTとClaudeを往復する前提で、次に投げるプロンプトまでその場で作れるようにしました。</p>
       </div>
       <div class="hero-actions">
-        <a class="ghost-link" href="../index.html">一覧へ戻る</a>
         <button class="ghost-btn" id="newItemBtn" type="button">新しい項目を作る</button>
       </div>
     </header>
 
     <main class="layout">
+      <section class="panel guide-panel">
+        <div class="panel-head">
+          <div>
+            <h2>使い方</h2>
+            <p>まず左のボードから1本選び、中央で内容を直し、最後に右下のプロンプトをそのままAIへ渡す流れです。</p>
+          </div>
+        </div>
+        <div class="guide-grid">
+          <article class="guide-card">
+            <strong>1. ボードで選ぶ</strong>
+            <p>`Idea` から `Ready` まで並んでいます。いま進めたい記事を1本押すと詳細が開きます。</p>
+          </article>
+          <article class="guide-card">
+            <strong>2. 詳細を埋める</strong>
+            <p>`次にやること` と `違和感・補強したい点` を短く書くと、あとで迷いにくくなります。</p>
+          </article>
+          <article class="guide-card">
+            <strong>3. プロンプトを使う</strong>
+            <p>下の `AI受け渡しプロンプト` は自動生成です。そのまま ChatGPT や Claude に貼る前提で使えます。</p>
+          </article>
+        </div>
+      </section>
+
       <section class="panel stats-panel">
         <div class="panel-head">
           <div>

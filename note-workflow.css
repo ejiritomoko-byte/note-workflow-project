@@ -125,6 +125,7 @@ textarea {
 }
 
 .stats-panel,
+.guide-panel,
 .prompt-panel {
   grid-column: 1 / -1;
 }
@@ -174,6 +175,31 @@ textarea {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.guide-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #fffdf8 0%, #fff 100%);
+}
+
+.guide-card strong {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-strong);
+}
+
+.guide-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .stat-card {
@@ -386,6 +412,7 @@ textarea {
   }
 
   .stats-grid,
+  .guide-grid,
   .toolbar,
   .prompt-grid,
   .editor-grid {
