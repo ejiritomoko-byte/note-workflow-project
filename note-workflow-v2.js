@@ -62,6 +62,7 @@ const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "家庭学習に使える『自分専用の学習アプリ』をAIで作ってみた",
+    account: "moco_edu_note",
     type: "rewrite",
     status: "リライト中",
     priority: "高",
@@ -76,6 +77,7 @@ const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "中学受験の国語に使えるAIはどれ？",
+    account: "moco_edu_note",
     type: "rewrite",
     status: "リライト中",
     priority: "高",
@@ -90,6 +92,7 @@ const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "子どもの『考える力』を引き出す、たった3つの習慣",
+    account: "moco_edu_note",
     type: "rewrite",
     status: "整え中",
     priority: "中",
@@ -104,6 +107,7 @@ const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "ビジコンで書かされる『3年後のプラン』は、なぜ事業の判断を狂わせるのか",
+    account: "learnfromfailure",
     type: "rewrite",
     status: "リライト中",
     priority: "中",
@@ -118,6 +122,7 @@ const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "家庭学習でAIをどう使えば親がラクになるか",
+    account: "moco_edu_note",
     type: "new",
     status: "ネタ",
     priority: "高",
@@ -189,6 +194,7 @@ function normalizeItem(item) {
   return {
     id: item.id || crypto.randomUUID(),
     title: String(item.title || "新しい項目"),
+    account: item.account === "learnfromfailure" ? "learnfromfailure" : "moco_edu_note",
     type: LEGACY_TYPE_MAP[item.type] || "new",
     status: LEGACY_STATUS_MAP[item.status] || "ネタ",
     priority: LEGACY_PRIORITY_MAP[item.priority] || "中",
@@ -246,6 +252,7 @@ function bindEvents() {
     const updated = normalizeItem({
       ...selected,
       title: formData.get("title"),
+      account: formData.get("account"),
       type: formData.get("type"),
       status: formData.get("status"),
       priority: formData.get("priority"),
@@ -372,6 +379,7 @@ function renderCard(item) {
         <span class="priority-badge ${priorityClassName(item.priority)}">${escapeHtml(item.priority)}</span>
       </div>
       <div class="meta-row">
+        <span class="chip ${accountChipClass(item.account)}">${escapeHtml(item.account)}</span>
         <span class="chip">${escapeHtml(TYPE_LABELS[item.type])}</span>
         <span class="chip">${escapeHtml(item.status)}</span>
         <span class="chip">${escapeHtml(item.targetAi)}</span>
@@ -441,6 +449,7 @@ function makeEmptyItem() {
   return {
     id: crypto.randomUUID(),
     title: "新しい項目",
+    account: "moco_edu_note",
     type: "new",
     status: "ネタ",
     priority: "中",
@@ -459,6 +468,7 @@ function buildPrompt(item) {
     `以下の note 記事について、${GOAL_LABELS[item.aiGoal]}のを手伝ってください。`,
     "",
     `タイトル: ${item.title}`,
+    `アカウント: ${item.account}`,
     `種別: ${TYPE_LABELS[item.type]}`,
     `進み具合: ${item.status}`,
     "",
@@ -485,6 +495,7 @@ function syncPromptFromForm() {
   const draftItem = normalizeItem({
     id: getSelectedItem()?.id || crypto.randomUUID(),
     title,
+    account: String(form.elements.namedItem("account")?.value || "moco_edu_note"),
     type: String(form.elements.namedItem("type")?.value || "new"),
     status: String(form.elements.namedItem("status")?.value || "ネタ"),
     priority: String(form.elements.namedItem("priority")?.value || "中"),
@@ -507,6 +518,13 @@ function priorityClassName(priority) {
     return "low";
   }
   return "medium";
+}
+
+function accountChipClass(account) {
+  if (account === "learnfromfailure") {
+    return "account-learn";
+  }
+  return "account-moco";
 }
 
 function escapeHtml(value) {

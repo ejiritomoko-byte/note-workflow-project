@@ -259,6 +259,16 @@ textarea {
   color: var(--accent-dark);
 }
 
+.chip.account-moco {
+  background: #dfeaf8;
+  color: #2f5f96;
+}
+
+.chip.account-learn {
+  background: #e6f3e4;
+  color: #3d7040;
+}
+
 .priority-badge {
   background: #efe8d7;
   color: #7d6225;
