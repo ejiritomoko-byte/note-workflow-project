@@ -19,11 +19,13 @@
       </div>
       <div class="hero-actions">
         <button class="primary-btn" id="newObservationBtn" type="button">新しい観測を追加</button>
+        <button class="primary-btn" id="fetchLatestBtn" type="button">最新を取りに行く</button>
         <button class="ghost-btn" id="exportBtn" type="button">JSONを書き出す</button>
         <button class="ghost-btn" id="importBtn" type="button">JSONを読み込む</button>
         <button class="ghost-btn" id="resetBtn" type="button">サンプルに戻す</button>
         <input id="importInput" type="file" accept="application/json" hidden>
       </div>
+      <p class="hero-status" id="fetchStatusLabel">最新取得はまだ実行していません。</p>
     </header>
 
     <main class="layout">
@@ -56,6 +58,10 @@
             <h2>いま見えていること</h2>
             <p>スキ数と頻出テーマから、次に追うべき切り口をざっくり把握します。</p>
           </div>
+          <div class="panel-actions">
+            <span class="refresh-note" id="insightRefreshLabel">未更新</span>
+            <button class="ghost-btn" id="refreshInsightsBtn" type="button">更新</button>
+          </div>
         </div>
         <div class="stats-grid" id="statsGrid"></div>
         <div class="insight-grid">
@@ -79,6 +85,10 @@
           <div>
             <h2>観測フィード</h2>
             <p>人気記事、ハッシュタグ観測、公式告知を同じボードで扱えます。</p>
+          </div>
+          <div class="panel-actions">
+            <span class="refresh-note" id="feedRefreshLabel">未更新</span>
+            <button class="ghost-btn" id="refreshFeedBtn" type="button">更新</button>
           </div>
         </div>
         <div class="toolbar">
@@ -361,12 +371,37 @@
           <article class="strategy-card">
             <div class="section-head">
               <div>
+                <h3>おすすめキーワード</h3>
+                <p>タイトルと一緒に使いやすい検索・導線キーワードです。</p>
+              </div>
+              <button class="ghost-btn" id="copyKeywordsBtn" type="button">キーワードをコピー</button>
+            </div>
+            <textarea id="keywordIdeasOutput" rows="14" readonly></textarea>
+          </article>
+        </div>
+        <div class="strategy-grid">
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
                 <h3>育成アクション</h3>
                 <p>読者を増やして売上につなげるための実行メモです。</p>
               </div>
               <button class="ghost-btn" id="copyGrowthPlanBtn" type="button">育成プランをコピー</button>
             </div>
             <textarea id="growthPlanOutput" rows="14" readonly></textarea>
+          </article>
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>更新について</h3>
+                <p>このアプリの中身がいつ変わるかをここで確認できます。</p>
+              </div>
+            </div>
+            <ul class="signal-list">
+              <li>今はローカル保存型なので、自動では最新化されません。</li>
+              <li>観測データを追加・編集したとき、またはプロフィール設定を変えたときに内容が更新されます。</li>
+              <li>将来的にRSSやバックエンド連携を足せば、都度自動更新する形にもできます。</li>
+            </ul>
           </article>
         </div>
       </section>

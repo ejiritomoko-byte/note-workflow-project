@@ -16,6 +16,36 @@ const PROFILE_PRESETS = {
   }
 };
 
+const LIVE_SOURCES = [
+  {
+    key: "moco_edu_note",
+    url: "https://note.com/moco_edu_note",
+    author: "moco 教育×AI×心理学",
+    sourceType: "popular",
+    category: "教育・AI",
+    tags: ["中学受験", "家庭学習", "教育とAI"],
+    sourceLabel: "自動取得 moco_edu_note"
+  },
+  {
+    key: "learnfromfailure",
+    url: "https://note.com/learnfromfailure",
+    author: "失敗から学ぶ起業",
+    sourceType: "popular",
+    category: "起業判断",
+    tags: ["起業", "失敗から学ぶ", "ビジコン"],
+    sourceLabel: "自動取得 learnfromfailure"
+  },
+  {
+    key: "note_official",
+    url: "https://note.com/info",
+    author: "note公式",
+    sourceType: "official",
+    category: "公式発表",
+    tags: ["note公式", "お知らせ", "企画"],
+    sourceLabel: "自動取得 note公式"
+  }
+];
+
 const SOURCE_LABELS = {
   popular: "人気記事",
   hashtag: "ハッシュタグ観測",
@@ -137,6 +167,10 @@ let state = {
   items: loadItems(),
   profile: loadProfile(),
   selectedId: null,
+  refreshMeta: {
+    insights: "",
+    feed: ""
+  },
   filters: {
     search: "",
     sourceType: "all",
@@ -171,7 +205,11 @@ const contentFocus = document.getElementById("contentFocus");
 const monetizeFocus = document.getElementById("monetizeFocus");
 const nextMove = document.getElementById("nextMove");
 const themeIdeasOutput = document.getElementById("themeIdeasOutput");
+const keywordIdeasOutput = document.getElementById("keywordIdeasOutput");
 const growthPlanOutput = document.getElementById("growthPlanOutput");
+const insightRefreshLabel = document.getElementById("insightRefreshLabel");
+const feedRefreshLabel = document.getElementById("feedRefreshLabel");
+const fetchStatusLabel = document.getElementById("fetchStatusLabel");
 
 init();
 
@@ -181,6 +219,8 @@ function init() {
   }
 
   bindEvents();
+  markRefresh("insights");
+  markRefresh("feed");
   renderAll();
 }
 
@@ -305,6 +345,10 @@ function bindEvents() {
     renderAll();
   });
 
+  document.getElementById("fetchLatestBtn").addEventListener("click", async () => {
+    await fetchLatestSources();
+  });
+
   document.getElementById("duplicateBtn").addEventListener("click", () => {
     const selected = getSelectedItem();
     if (!selected) {
@@ -343,7 +387,17 @@ function bindEvents() {
     state.items = structuredClone(DEFAULT_ITEMS);
     state.selectedId = state.items[0]?.id || null;
     saveItems();
+    markRefresh("insights");
+    markRefresh("feed");
     renderAll();
+  });
+
+  document.getElementById("refreshInsightsBtn").addEventListener("click", () => {
+    refreshInsights();
+  });
+
+  document.getElementById("refreshFeedBtn").addEventListener("click", () => {
+    refreshFeed();
   });
 
   document.getElementById("saveProfileBtn").addEventListener("click", () => {
@@ -367,6 +421,10 @@ function bindEvents() {
     copyTextWithFeedback(themeIdeasOutput.value);
   });
 
+  document.getElementById("copyKeywordsBtn").addEventListener("click", () => {
+    copyTextWithFeedback(keywordIdeasOutput.value);
+  });
+
   document.getElementById("copyGrowthPlanBtn").addEventListener("click", () => {
     copyTextWithFeedback(growthPlanOutput.value);
   });
@@ -378,32 +436,11 @@ function bindEvents() {
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    const selected = getSelectedItem();
-    if (!selected) {
+    if (!syncSelectedItemFromForm()) {
       return;
     }
-
-    const formData = new FormData(form);
-    const updated = normalizeItem({
-      ...selected,
-      title: formData.get("title"),
-      sourceType: formData.get("sourceType"),
-      status: formData.get("status"),
-      observedAt: formData.get("observedAt"),
-      publishedAt: formData.get("publishedAt"),
-      likes: formData.get("likes"),
-      comments: formData.get("comments"),
-      author: formData.get("author"),
-      category: formData.get("category"),
-      tags: formData.get("tags"),
-      url: formData.get("url"),
-      summary: formData.get("summary"),
-      takeaway: formData.get("takeaway"),
-      sourceLabel: formData.get("sourceLabel")
-    });
-
-    state.items = state.items.map((item) => item.id === updated.id ? updated : item);
-    saveItems();
+    markRefresh("insights");
+    markRefresh("feed");
     renderAll();
   });
 }
@@ -417,6 +454,12 @@ function renderAll() {
   renderStrategy();
   renderProfileForm();
   renderPersonalGuidance();
+  renderRefreshMeta();
+}
+
+function renderRefreshMeta() {
+  insightRefreshLabel.textContent = state.refreshMeta.insights || "未更新";
+  feedRefreshLabel.textContent = state.refreshMeta.feed || "未更新";
 }
 
 function renderStats() {
@@ -637,11 +680,239 @@ function syncProfileFromForm() {
   });
 }
 
+function syncSelectedItemFromForm() {
+  const selected = getSelectedItem();
+  if (!selected) {
+    return false;
+  }
+
+  const titleField = form.elements.namedItem("title");
+  const titleValue = String(titleField?.value || "").trim();
+  if (!titleValue) {
+    return false;
+  }
+
+  const formData = new FormData(form);
+  const updated = normalizeItem({
+    ...selected,
+    title: formData.get("title"),
+    sourceType: formData.get("sourceType"),
+    status: formData.get("status"),
+    observedAt: formData.get("observedAt"),
+    publishedAt: formData.get("publishedAt"),
+    likes: formData.get("likes"),
+    comments: formData.get("comments"),
+    author: formData.get("author"),
+    category: formData.get("category"),
+    tags: formData.get("tags"),
+    url: formData.get("url"),
+    summary: formData.get("summary"),
+    takeaway: formData.get("takeaway"),
+    sourceLabel: formData.get("sourceLabel")
+  });
+
+  state.items = state.items.map((item) => item.id === updated.id ? updated : item);
+  saveItems();
+  return true;
+}
+
 function applyProfilePreset(presetKey) {
   state.profile = normalizeProfile(PROFILE_PRESETS[presetKey] || makeDefaultProfile());
   saveProfile();
   renderProfileForm();
   renderPersonalGuidance();
+}
+
+function refreshInsights() {
+  syncProfileFromForm();
+  saveProfile();
+  syncSelectedItemFromForm();
+  markRefresh("insights");
+  renderStats();
+  renderStrategy();
+  renderPersonalGuidance();
+  renderRefreshMeta();
+}
+
+function refreshFeed() {
+  syncSelectedItemFromForm();
+  markRefresh("feed");
+  renderObservationList();
+  renderForm();
+  renderOfficialList();
+  renderWatchlist();
+  renderRefreshMeta();
+}
+
+async function fetchLatestSources() {
+  fetchStatusLabel.textContent = "最新データを取得中です...";
+
+  try {
+    syncSelectedItemFromForm();
+
+    const results = await Promise.allSettled(
+      LIVE_SOURCES.map((source) => fetchSourceItems(source))
+    );
+
+    const fetchedItems = results.flatMap((result) =>
+      result.status === "fulfilled" ? result.value : []
+    );
+
+    if (!fetchedItems.length) {
+      fetchStatusLabel.textContent = "最新取得に失敗しました。外部取得がブロックされている可能性があります。";
+      return;
+    }
+
+    mergeFetchedItems(fetchedItems);
+    saveItems();
+    markRefresh("insights");
+    markRefresh("feed");
+    renderAll();
+    fetchStatusLabel.textContent = `${fetchedItems.length} 件の最新候補を取り込みました。`;
+  } catch (error) {
+    fetchStatusLabel.textContent = "最新取得に失敗しました。時間をおいて再度試してください。";
+  }
+}
+
+async function fetchSourceItems(source) {
+  const html = await fetchSourceHtml(source.url);
+  const parsed = parseLatestItemsFromHtml(html, source);
+  return parsed.slice(0, source.sourceType === "official" ? 6 : 8);
+}
+
+async function fetchSourceHtml(url) {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://r.jina.ai/http://${url.replace(/^https?:\/\//, "")}`
+  ];
+
+  for (const proxyUrl of proxies) {
+    try {
+      const response = await fetch(proxyUrl);
+      if (!response.ok) {
+        continue;
+      }
+      const text = await response.text();
+      if (text && text.length > 200) {
+        return text;
+      }
+    } catch (error) {
+      // try next proxy
+    }
+  }
+
+  throw new Error(`Unable to fetch ${url}`);
+}
+
+function parseLatestItemsFromHtml(html, source) {
+  if (html.trim().startsWith("Title:")) {
+    return parseJinaTextItems(html, source);
+  }
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const anchors = [...doc.querySelectorAll('a[href*="/n/"]')];
+  const seen = new Set();
+  const items = [];
+
+  anchors.forEach((anchor) => {
+    const href = anchor.href;
+    const title = normalizeWhitespace(anchor.textContent);
+    if (!href || !title || title.length < 8) {
+      return;
+    }
+    if (seen.has(href) || seen.has(title)) {
+      return;
+    }
+
+    const surroundingText = normalizeWhitespace(anchor.parentElement?.textContent || anchor.closest("article")?.textContent || "");
+    const publishedAt = extractPublishedDate(surroundingText);
+
+    seen.add(href);
+    seen.add(title);
+    items.push(makeFetchedItem(source, {
+      title,
+      url: href,
+      publishedAt
+    }));
+  });
+
+  return items;
+}
+
+function parseJinaTextItems(text, source) {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const items = [];
+  const seen = new Set();
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.startsWith("### ")) {
+      continue;
+    }
+
+    const title = normalizeWhitespace(line.replace(/^###\s+/, ""));
+    if (!title || title.length < 8 || seen.has(title)) {
+      continue;
+    }
+
+    const neighborhood = lines.slice(index, index + 6).join(" ");
+    const publishedAt = extractPublishedDate(neighborhood);
+    const url = "";
+
+    seen.add(title);
+    items.push(makeFetchedItem(source, {
+      title,
+      url,
+      publishedAt
+    }));
+  }
+
+  return items;
+}
+
+function makeFetchedItem(source, partial) {
+  return normalizeItem({
+    id: crypto.randomUUID(),
+    title: partial.title,
+    sourceType: source.sourceType,
+    status: "watch",
+    observedAt: todayLocalDate(),
+    publishedAt: partial.publishedAt,
+    likes: 0,
+    comments: 0,
+    author: source.author,
+    category: source.category,
+    tags: source.tags,
+    url: partial.url,
+    summary: "最新取得で追加した候補です。内容を確認して要約と気づきを追記してください。",
+    takeaway: "この候補が自分のnoteテーマにどうつながるかを判断する。",
+    sourceLabel: source.sourceLabel
+  });
+}
+
+function mergeFetchedItems(fetchedItems) {
+  const existingMap = new Map(
+    state.items.map((item) => [item.url || `${item.author}::${item.title}`, item])
+  );
+
+  fetchedItems.forEach((item) => {
+    const key = item.url || `${item.author}::${item.title}`;
+    const existing = existingMap.get(key);
+
+    if (existing) {
+      Object.assign(existing, {
+        publishedAt: item.publishedAt || existing.publishedAt,
+        observedAt: todayLocalDate(),
+        sourceLabel: item.sourceLabel,
+        category: item.category || existing.category,
+        tags: item.tags?.length ? item.tags : existing.tags
+      });
+      return;
+    }
+
+    state.items.unshift(item);
+    existingMap.set(key, item);
+  });
 }
 
 function renderStrategy() {
@@ -682,6 +953,7 @@ function renderPersonalGuidance() {
   monetizeFocus.textContent = guidance.monetizeFocus;
   nextMove.textContent = guidance.nextMove;
   themeIdeasOutput.value = guidance.themeIdeas;
+  keywordIdeasOutput.value = guidance.keywords;
   growthPlanOutput.value = guidance.growthPlan;
 }
 
@@ -701,6 +973,7 @@ function buildPersonalGuidance(profile, selectedItem, items) {
     monetizeFocus,
     nextMove,
     themeIdeas: buildThemeIdeas(profile, selectedItem, topCategories, topTags),
+    keywords: buildKeywordIdeas(profile, selectedItem, topCategories, topTags),
     growthPlan: buildGrowthPlan(profile, selectedItem, selectedBase, topTags)
   };
 }
@@ -787,6 +1060,106 @@ function buildGrowthPlan(profile, selectedItem, selectedBase, topTags) {
     `・${selectedBase} と ${supportingTag} を組み合わせた実例記事`,
     `・${profile.monetizeTarget} につながる問題提起記事`
   ].join("\n");
+}
+
+function buildKeywordIdeas(profile, selectedItem, topCategories, topTags) {
+  const reader = profile.targetReader || "初心者";
+  const baseTheme = selectedItem?.category || topCategories[0] || profile.noteTheme || "note運用";
+  const focusTag = selectedItem?.tags[0] || topTags[0] || "実体験";
+  const helperTag = selectedItem?.tags[1] || topTags[1] || "比較";
+  const monetize = profile.monetizeTarget || "有料note";
+
+  const keywords = suggestPersonalizedKeywords(profile, {
+    reader,
+    baseTheme,
+    focusTag,
+    helperTag,
+    monetize,
+    selectedTitle: selectedItem?.title || ""
+  });
+
+  return [
+    "主軸キーワード:",
+    ...keywords.primary.map((keyword, index) => `${index + 1}. ${keyword}`),
+    "",
+    "組み合わせキーワード:",
+    ...keywords.secondary.map((keyword, index) => `${index + 1}. ${keyword}`),
+    "",
+    "ハッシュタグ候補:",
+    ...keywords.tags.map((keyword, index) => `${index + 1}. #${keyword}`)
+  ].join("\n");
+}
+
+function suggestPersonalizedKeywords(profile, context) {
+  if (profile.noteTheme.includes("教育") || profile.noteTheme.includes("保護者")) {
+    return {
+      primary: [
+        "中学受験 AI",
+        "家庭学習 AI",
+        "保護者 AI 活用",
+        "考える力 家庭学習"
+      ],
+      secondary: [
+        `${context.baseTheme} 初心者`,
+        `${context.focusTag} 親向け`,
+        "無料版 有料版 比較",
+        "子ども AI 使い方"
+      ],
+      tags: [
+        "中学受験",
+        "家庭学習",
+        "教育とAI",
+        "保護者向け",
+        "学び"
+      ]
+    };
+  }
+
+  if (profile.noteTheme.includes("起業") || profile.noteTheme.includes("失敗")) {
+    return {
+      primary: [
+        "起業 失敗",
+        "起業前 チェック",
+        "ビジコン 事業計画",
+        "撤退ライン 起業"
+      ],
+      secondary: [
+        `${context.baseTheme} 実体験`,
+        `${context.focusTag} 判断ミス`,
+        "固定費 起業前",
+        "起業 判断基準"
+      ],
+      tags: [
+        "起業準備",
+        "失敗から学ぶ",
+        "ビジコン",
+        "事業判断",
+        "実体験"
+      ]
+    };
+  }
+
+  return {
+    primary: [
+      `${context.baseTheme}`,
+      `${context.baseTheme} ${context.reader}`,
+      `${context.focusTag} 始め方`,
+      `${context.baseTheme} コツ`
+    ],
+    secondary: [
+      `${context.helperTag} 比較`,
+      `${context.baseTheme} 実例`,
+      `${context.monetize} 導線`,
+      `${context.baseTheme} 失敗`
+    ],
+    tags: [
+      context.baseTheme.replaceAll(" ", ""),
+      context.focusTag.replaceAll(" ", ""),
+      "note運用",
+      "情報発信",
+      "学び"
+    ]
+  };
 }
 
 function buildStrategy(item) {
@@ -1071,6 +1444,42 @@ async function copyTextWithFeedback(text) {
     document.execCommand("copy");
     document.body.removeChild(helper);
   }
+}
+
+function markRefresh(target) {
+  const stamp = formatRefreshTime(new Date());
+  if (target === "insights" || target === "feed") {
+    state.refreshMeta[target] = `最終更新: ${stamp}`;
+  }
+}
+
+function formatRefreshTime(date) {
+  return new Intl.DateTimeFormat("ja-JP", {
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function normalizeWhitespace(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function extractPublishedDate(value) {
+  const text = String(value || "");
+  const exactDate = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (exactDate) {
+    return exactDate[0];
+  }
+
+  const jpDate = text.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+  if (jpDate) {
+    const [, year, month, day] = jpDate;
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  }
+
+  return "";
 }
 
 function todayLocalDate() {
