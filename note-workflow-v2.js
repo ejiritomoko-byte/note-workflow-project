@@ -594,20 +594,54 @@ async function copyPromptToClipboard() {
   }
 
   try {
-    await navigator.clipboard.writeText(text);
-    copyPromptBtn.textContent = "コピー済み";
-    setTimeout(() => {
-      copyPromptBtn.textContent = "全文コピー";
-    }, 1500);
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      showCopySuccess();
+      return;
+    }
   } catch (error) {
-    promptOutput.focus();
-    promptOutput.select();
-    document.execCommand("copy");
-    copyPromptBtn.textContent = "コピー済み";
-    setTimeout(() => {
-      copyPromptBtn.textContent = "全文コピー";
-    }, 1500);
+    // Fallback below.
   }
+
+  const helper = document.createElement("textarea");
+  helper.value = text;
+  helper.setAttribute("readonly", "");
+  helper.style.position = "fixed";
+  helper.style.top = "-9999px";
+  helper.style.left = "-9999px";
+  document.body.appendChild(helper);
+  helper.focus();
+  helper.select();
+  helper.setSelectionRange(0, helper.value.length);
+
+  try {
+    const copied = document.execCommand("copy");
+    if (copied) {
+      showCopySuccess();
+    } else {
+      showCopyFailure();
+    }
+  } catch (error) {
+    showCopyFailure();
+  } finally {
+    document.body.removeChild(helper);
+  }
+}
+
+function showCopySuccess() {
+  copyPromptBtn.textContent = "コピー済み";
+  setTimeout(() => {
+    copyPromptBtn.textContent = "全文コピー";
+  }, 1500);
+}
+
+function showCopyFailure() {
+  copyPromptBtn.textContent = "手動でコピー";
+  promptOutput.focus();
+  promptOutput.select();
+  setTimeout(() => {
+    copyPromptBtn.textContent = "全文コピー";
+  }, 2000);
 }
 
 function priorityClassName(priority) {
