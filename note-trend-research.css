@@ -329,6 +329,16 @@ a {
   gap: 6px;
 }
 
+.inline-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.mini-btn {
+  padding: 7px 10px;
+  font-size: 0.82rem;
+}
+
 .toolbar span,
 .editor-grid span {
   font-size: 0.84rem;

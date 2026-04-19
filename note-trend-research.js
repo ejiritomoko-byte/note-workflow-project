@@ -214,6 +214,8 @@ const growthPlanOutput = document.getElementById("growthPlanOutput");
 const insightRefreshLabel = document.getElementById("insightRefreshLabel");
 const feedRefreshLabel = document.getElementById("feedRefreshLabel");
 const fetchStatusLabel = document.getElementById("fetchStatusLabel");
+const summaryField = form.elements.namedItem("summary");
+const takeawayField = form.elements.namedItem("takeaway");
 
 init();
 
@@ -455,6 +457,24 @@ function bindEvents() {
   bindButtonAction("copyGrowthPlanBtn", () => {
     copyTextWithFeedback(growthPlanOutput.value);
     return "育成プランをコピーしました。";
+  });
+
+  bindButtonAction("draftSummaryBtn", () => {
+    const selected = getDraftContextItem();
+    if (!selected) {
+      return "要約に使う観測がありません。";
+    }
+    summaryField.value = buildObservationSummary(selected);
+    return "要約の叩き台を作成しました。";
+  });
+
+  bindButtonAction("draftTakeawayBtn", () => {
+    const selected = getDraftContextItem();
+    if (!selected) {
+      return "気づきに使う観測がありません。";
+    }
+    takeawayField.value = buildObservationTakeaway(selected, state.profile);
+    return "気づきの叩き台を作成しました。";
   });
 
   profileForm.addEventListener("input", () => {
@@ -778,6 +798,32 @@ function syncSelectedItemFromForm() {
   state.items = state.items.map((item) => item.id === updated.id ? updated : item);
   saveItems();
   return true;
+}
+
+function getDraftContextItem() {
+  const selected = getSelectedItem();
+  if (!selected) {
+    return null;
+  }
+
+  const formData = new FormData(form);
+  return normalizeItem({
+    ...selected,
+    title: formData.get("title"),
+    sourceType: formData.get("sourceType"),
+    status: formData.get("status"),
+    observedAt: formData.get("observedAt"),
+    publishedAt: formData.get("publishedAt"),
+    likes: formData.get("likes"),
+    comments: formData.get("comments"),
+    author: formData.get("author"),
+    category: formData.get("category"),
+    tags: formData.get("tags"),
+    url: formData.get("url"),
+    summary: formData.get("summary"),
+    takeaway: formData.get("takeaway"),
+    sourceLabel: formData.get("sourceLabel")
+  });
 }
 
 function createNewObservation() {
@@ -1141,6 +1187,42 @@ function buildGrowthPlan(profile, selectedItem, selectedBase, topTags) {
     `・${selectedBase} と ${supportingTag} を組み合わせた実例記事`,
     `・${profile.monetizeTarget} につながる問題提起記事`
   ].join("\n");
+}
+
+function buildObservationSummary(item) {
+  const sourceLabel = SOURCE_LABELS[item.sourceType];
+  const likeLine = item.sourceType === "official"
+    ? "公式発表として、企画や機能変更の流れを把握する材料になる。"
+    : item.likes > 0
+      ? `${item.likes}スキの反応があり、一定の需要が見えている。`
+      : "まだ反応数は未確認だが、切り口の検証候補になる。";
+  const categoryLine = item.category
+    ? `${item.category}の文脈で読まれやすいテーマとして整理できる。`
+    : "テーマの文脈を補足すると、読み手に伝わりやすくなる。";
+  const tagLine = item.tags.length
+    ? `特に ${item.tags.slice(0, 3).join("、")} の切り口が前面に出ている。`
+    : "タグや切り口を補うと、なぜ刺さるかが見えやすくなる。";
+
+  return [
+    `${item.title} は ${sourceLabel} として観測した候補。`,
+    likeLine,
+    categoryLine,
+    tagLine,
+    "読み手の悩みを具体化しつつ、すぐ試せる形に落としている点が強みになりやすい。"
+  ].join(" ");
+}
+
+function buildObservationTakeaway(item, profile) {
+  const reader = profile.targetReader || "自分の読者";
+  const monetization = profile.monetizeTarget || "有料note";
+  const base = item.category || item.tags[0] || "このテーマ";
+  const angle = item.tags[1] || "実例";
+
+  return [
+    `${reader} に向けては、${base} をもっとやさしく整理した切り口にすると相性が良さそう。`,
+    `${angle} を入れると抽象論だけにならず、保存したくなる記事にしやすい。`,
+    `無料記事では悩み整理と最初の一歩まで見せて、続きで ${monetization} につなげる流れが作れそう。`
+  ].join(" ");
 }
 
 function buildKeywordIdeas(profile, selectedItem, topCategories, topTags) {
