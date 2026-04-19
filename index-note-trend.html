@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>noteトレンド調査ダッシュボード</title>
+  <link rel="stylesheet" href="note-trend-research.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">note Trend Research</p>
+        <h1>noteトレンド調査ダッシュボード</h1>
+        <p class="hero-copy">
+          スキが多い記事の傾向、追うべきテーマ、note公式の発表を1画面で整理できるローカル調査アプリです。
+          まずは手入力とJSON運用で回し、あとから自動取得用のバックエンドを足せる構成にしています。
+        </p>
+      </div>
+      <div class="hero-actions">
+        <button class="primary-btn" id="newObservationBtn" type="button">新しい観測を追加</button>
+        <button class="ghost-btn" id="exportBtn" type="button">JSONを書き出す</button>
+        <button class="ghost-btn" id="importBtn" type="button">JSONを読み込む</button>
+        <button class="ghost-btn" id="resetBtn" type="button">サンプルに戻す</button>
+        <input id="importInput" type="file" accept="application/json" hidden>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>このアプリでやること</h2>
+            <p>市場を見るだけで終わらせず、自分のnoteに合うテーマを決めて、育て方まで考えるためのアプリです。</p>
+          </div>
+        </div>
+        <div class="insight-grid">
+          <article class="insight-card">
+            <h3>1. 市場を見る</h3>
+            <p class="card-summary">人気記事、ハッシュタグ、note公式の動きから、いま強い切り口を集めます。</p>
+          </article>
+          <article class="insight-card">
+            <h3>2. 自分向けに変える</h3>
+            <p class="card-summary">あなたの発信テーマ、読者、売りたいものに合わせて、タイトル案と企画を出します。</p>
+          </article>
+          <article class="insight-card">
+            <h3>3. noteを育てる</h3>
+            <p class="card-summary">無料記事、有料note、テンプレート、相談導線までつなげて、育成の次の一手を決めます。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>いま見えていること</h2>
+            <p>スキ数と頻出テーマから、次に追うべき切り口をざっくり把握します。</p>
+          </div>
+        </div>
+        <div class="stats-grid" id="statsGrid"></div>
+        <div class="insight-grid">
+          <article class="insight-card">
+            <h3>強いテーマ</h3>
+            <div class="token-list" id="themeTokens"></div>
+          </article>
+          <article class="insight-card">
+            <h3>強いタグ</h3>
+            <div class="token-list" id="tagTokens"></div>
+          </article>
+          <article class="insight-card">
+            <h3>勝ち筋メモ</h3>
+            <ul class="insight-list" id="patternList"></ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>観測フィード</h2>
+            <p>人気記事、ハッシュタグ観測、公式告知を同じボードで扱えます。</p>
+          </div>
+        </div>
+        <div class="toolbar">
+          <label>
+            <span>検索</span>
+            <input id="searchInput" type="search" placeholder="タイトル、タグ、要約で検索">
+          </label>
+          <label>
+            <span>種別</span>
+            <select id="sourceFilter">
+              <option value="all">すべて</option>
+              <option value="popular">人気記事</option>
+              <option value="hashtag">ハッシュタグ観測</option>
+              <option value="official">公式発表</option>
+            </select>
+          </label>
+          <label>
+            <span>状態</span>
+            <select id="statusFilter">
+              <option value="all">すべて</option>
+              <option value="watch">ウォッチ中</option>
+              <option value="validated">確認済み</option>
+              <option value="idea">企画化したい</option>
+            </select>
+          </label>
+          <label>
+            <span>並び順</span>
+            <select id="sortSelect">
+              <option value="likes">スキ数が多い順</option>
+              <option value="newest">新しい順</option>
+              <option value="official">公式優先</option>
+            </select>
+          </label>
+        </div>
+        <div class="board-grid">
+          <div class="observation-list" id="observationList"></div>
+          <aside class="detail-card">
+            <div class="detail-head">
+              <div>
+                <h2>観測メモ</h2>
+                <p id="selectedMeta">項目を選ぶと詳細が出ます。</p>
+              </div>
+              <span class="selected-id" id="selectedIdLabel"></span>
+            </div>
+
+            <form id="observationForm" class="editor-grid">
+              <label class="full">
+                <span>タイトル</span>
+                <input name="title" type="text" required>
+              </label>
+              <label>
+                <span>種別</span>
+                <select name="sourceType">
+                  <option value="popular">人気記事</option>
+                  <option value="hashtag">ハッシュタグ観測</option>
+                  <option value="official">公式発表</option>
+                </select>
+              </label>
+              <label>
+                <span>状態</span>
+                <select name="status">
+                  <option value="watch">ウォッチ中</option>
+                  <option value="validated">確認済み</option>
+                  <option value="idea">企画化したい</option>
+                </select>
+              </label>
+              <label>
+                <span>観測日</span>
+                <input name="observedAt" type="date">
+              </label>
+              <label>
+                <span>公開日</span>
+                <input name="publishedAt" type="date">
+              </label>
+              <label>
+                <span>スキ数</span>
+                <input name="likes" type="number" min="0" step="1" placeholder="例: 298">
+              </label>
+              <label>
+                <span>コメント数</span>
+                <input name="comments" type="number" min="0" step="1" placeholder="例: 12">
+              </label>
+              <label>
+                <span>著者 / アカウント</span>
+                <input name="author" type="text" placeholder="例: note公式">
+              </label>
+              <label>
+                <span>カテゴリ</span>
+                <input name="category" type="text" placeholder="例: AI・仕事術">
+              </label>
+              <label class="full">
+                <span>タグ</span>
+                <input name="tags" type="text" placeholder="カンマ区切りで入力">
+              </label>
+              <label class="full">
+                <span>記事URL</span>
+                <input name="url" type="url" placeholder="https://note.com/...">
+              </label>
+              <label class="full">
+                <span>要約</span>
+                <textarea name="summary" rows="5" placeholder="なぜ伸びているか、何が刺さっているか"></textarea>
+              </label>
+              <label class="full">
+                <span>気づき / 次の企画案</span>
+                <textarea name="takeaway" rows="4" placeholder="自分ならどう活かすか"></textarea>
+              </label>
+              <label class="full">
+                <span>参照元</span>
+                <input name="sourceLabel" type="text" placeholder="例: note公式 / ハッシュタグ一覧">
+              </label>
+
+              <div class="form-actions full">
+                <button class="primary-btn" type="submit">保存する</button>
+                <button class="ghost-btn" id="duplicateBtn" type="button">複製する</button>
+                <button class="ghost-btn danger-btn" id="deleteBtn" type="button">削除する</button>
+              </div>
+            </form>
+          </aside>
+        </div>
+      </section>
+
+      <section class="panel split-panel">
+        <article class="subpanel">
+          <div class="section-head">
+            <div>
+              <h2>公式発表ウォッチ</h2>
+              <p>機能追加、キャンペーン、特集企画を優先的に見ておくエリアです。</p>
+            </div>
+          </div>
+          <div class="mini-list" id="officialList"></div>
+        </article>
+        <article class="subpanel">
+          <div class="section-head">
+            <div>
+              <h2>次に見る候補</h2>
+              <p>スキ数が高い観測から、次の深掘り候補を自動で並べます。</p>
+            </div>
+          </div>
+          <div class="mini-list" id="watchlist"></div>
+        </article>
+      </section>
+
+      <section class="panel monetization-panel">
+        <div class="section-head">
+          <div>
+            <h2>記事化と収益化</h2>
+            <p>選択中の観測を、そのまま記事企画と販売導線に変えるエリアです。</p>
+          </div>
+          <div class="hero-actions">
+            <button class="primary-btn" id="copyArticlePlanBtn" type="button">記事企画をコピー</button>
+            <button class="ghost-btn" id="copyMonetizationBtn" type="button">収益化プランをコピー</button>
+          </div>
+        </div>
+        <div class="strategy-grid">
+          <article class="strategy-card">
+            <h3>機会スコア</h3>
+            <div class="score-row">
+              <strong id="opportunityScore">0</strong>
+              <span id="opportunityLabel">観測を選ぶと判定します</span>
+            </div>
+            <ul class="signal-list" id="opportunitySignals"></ul>
+          </article>
+          <article class="strategy-card">
+            <h3>記事の狙い</h3>
+            <dl class="brief-grid">
+              <div>
+                <dt>読者像</dt>
+                <dd id="readerPersona"></dd>
+              </div>
+              <div>
+                <dt>刺さる約束</dt>
+                <dd id="valuePromise"></dd>
+              </div>
+              <div>
+                <dt>売り方</dt>
+                <dd id="salesAngle"></dd>
+              </div>
+              <div>
+                <dt>商品導線</dt>
+                <dd id="productPath"></dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+        <div class="strategy-grid">
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>記事企画書</h3>
+                <p>このまま執筆に入れる粒度で出します。</p>
+              </div>
+            </div>
+            <textarea id="articlePlanOutput" rows="16" readonly></textarea>
+          </article>
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>収益化プラン</h3>
+                <p>無料記事から有料導線までの流れをまとめます。</p>
+              </div>
+            </div>
+            <textarea id="monetizationOutput" rows="16" readonly></textarea>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel profile-panel">
+        <div class="section-head">
+          <div>
+            <h2>自分のnoteを育てる</h2>
+            <p>あなたの発信テーマを入れると、観測データを参考にしたタイトル案と育成アクションを出します。</p>
+          </div>
+          <button class="primary-btn" id="saveProfileBtn" type="button">設定を保存</button>
+        </div>
+        <div class="strategy-grid">
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>アカウントプリセット</h3>
+                <p>この2つのnote向けに初期設定をすぐ切り替えられます。</p>
+              </div>
+            </div>
+            <div class="hero-actions">
+              <button class="ghost-btn" id="presetMocoBtn" type="button">moco_edu_note 用</button>
+              <button class="ghost-btn" id="presetFailureBtn" type="button">learnfromfailure 用</button>
+            </div>
+            <div class="divider"></div>
+            <form id="profileForm" class="editor-grid">
+              <label class="full">
+                <span>noteのテーマ</span>
+                <input name="noteTheme" type="text" placeholder="例: AIを使った記事作成、教育、副業">
+              </label>
+              <label class="full">
+                <span>想定読者</span>
+                <input name="targetReader" type="text" placeholder="例: note初心者、発信を始めたい会社員">
+              </label>
+              <label class="full">
+                <span>売りたいもの</span>
+                <input name="monetizeTarget" type="text" placeholder="例: 有料note、テンプレート、添削">
+              </label>
+              <label class="full">
+                <span>自分の強み</span>
+                <textarea name="strengths" rows="4" placeholder="例: 実体験、教育経験、AIツールの比較ができる"></textarea>
+              </label>
+            </form>
+          </article>
+          <article class="strategy-card">
+            <h3>この設定で狙う方針</h3>
+            <dl class="brief-grid">
+              <div>
+                <dt>育成方針</dt>
+                <dd id="growthDirection"></dd>
+              </div>
+              <div>
+                <dt>まず増やす記事</dt>
+                <dd id="contentFocus"></dd>
+              </div>
+              <div>
+                <dt>収益の入口</dt>
+                <dd id="monetizeFocus"></dd>
+              </div>
+              <div>
+                <dt>次の一手</dt>
+                <dd id="nextMove"></dd>
+              </div>
+            </dl>
+          </article>
+        </div>
+        <div class="strategy-grid">
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>あなた向けタイトル案</h3>
+                <p>観測データとあなたのテーマを合わせて作ります。</p>
+              </div>
+              <button class="ghost-btn" id="copyThemeIdeasBtn" type="button">タイトル案をコピー</button>
+            </div>
+            <textarea id="themeIdeasOutput" rows="14" readonly></textarea>
+          </article>
+          <article class="strategy-card">
+            <div class="section-head">
+              <div>
+                <h3>育成アクション</h3>
+                <p>読者を増やして売上につなげるための実行メモです。</p>
+              </div>
+              <button class="ghost-btn" id="copyGrowthPlanBtn" type="button">育成プランをコピー</button>
+            </div>
+            <textarea id="growthPlanOutput" rows="14" readonly></textarea>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-head">
+          <div>
+            <h2>メモ</h2>
+            <p>このMVPはローカル保存版です。ライブ自動収集はあとから拡張できます。</p>
+          </div>
+        </div>
+        <ul class="note-list">
+          <li>ブラウザだけで動くようにしているので、現時点では note 本体からの自動クロールはしていません。</li>
+          <li>note には広く公開された分析向け公式APIが見当たらないため、本格運用では小さなバックエンドやRSS取り込みがあると安定します。</li>
+          <li>最初は「人気記事」「ハッシュタグ一覧」「note公式のお知らせ」を週1回入れつつ、下の企画書と収益化プランまで必ず埋める運用にすると意味が出ます。</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+
+  <script src="note-trend-research.js"></script>
+</body>
+</html>
