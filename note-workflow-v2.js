@@ -190,6 +190,7 @@ const statsGrid = document.getElementById("statsGrid");
 const promptOutput = document.getElementById("promptOutput");
 const currentIdLabel = document.getElementById("currentIdLabel");
 const reviewList = document.getElementById("reviewChecklist");
+const copyPromptBtn = document.getElementById("copyPromptBtn");
 
 init();
 
@@ -364,6 +365,7 @@ function bindEvents() {
 
   form.addEventListener("input", syncPromptFromForm);
   form.addEventListener("change", syncPromptFromForm);
+  copyPromptBtn.addEventListener("click", copyPromptToClipboard);
 }
 
 function renderAll() {
@@ -583,6 +585,29 @@ function syncPromptFromForm() {
   });
 
   promptOutput.value = buildPrompt(draftItem);
+}
+
+async function copyPromptToClipboard() {
+  const text = promptOutput.value || "";
+  if (!text.trim()) {
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(text);
+    copyPromptBtn.textContent = "コピー済み";
+    setTimeout(() => {
+      copyPromptBtn.textContent = "全文コピー";
+    }, 1500);
+  } catch (error) {
+    promptOutput.focus();
+    promptOutput.select();
+    document.execCommand("copy");
+    copyPromptBtn.textContent = "コピー済み";
+    setTimeout(() => {
+      copyPromptBtn.textContent = "全文コピー";
+    }, 1500);
+  }
 }
 
 function priorityClassName(priority) {
