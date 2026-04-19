@@ -82,7 +82,6 @@ const seedItems = [
     mainKeyword: "家庭学習 AI アプリ",
     subKeywords: "ChatGPT, 学習アプリ, 保護者, 小学生, 自作アプリ",
     searchVolume: "未確認",
-    competition: "中",
     source: "https://note.com/moco_edu_note/n/nbd0f988a5c61",
     targetAi: "ChatGPT",
     aiGoal: "rewrite",
@@ -101,7 +100,6 @@ const seedItems = [
     mainKeyword: "中学受験 国語 AI",
     subKeywords: "ChatGPT, Claude, 比較, 保護者, 家庭学習",
     searchVolume: "未確認",
-    competition: "中〜強",
     source: "https://note.com/moco_edu_note/n/n2e4b937c23fc",
     targetAi: "Claude",
     aiGoal: "rewrite",
@@ -120,7 +118,6 @@ const seedItems = [
     mainKeyword: "考える力 子ども",
     subKeywords: "家庭学習, 思考力, 保護者, 勉強習慣",
     searchVolume: "未確認",
-    competition: "中",
     source: "https://note.com/moco_edu_note/n/ne661a9271f55",
     targetAi: "ChatGPT",
     aiGoal: "check",
@@ -139,7 +136,6 @@ const seedItems = [
     mainKeyword: "ビジコン 起業",
     subKeywords: "ビジネスコンテスト, 事業計画, 起業前, 失敗談",
     searchVolume: "未確認",
-    competition: "中",
     source: "https://note.com/learnfromfailure",
     targetAi: "Claude",
     aiGoal: "rewrite",
@@ -158,7 +154,6 @@ const seedItems = [
     mainKeyword: "家庭学習 AI",
     subKeywords: "保護者, ChatGPT, 家庭学習サポート, 効率化",
     searchVolume: "未確認",
-    competition: "中",
     source: "moco_edu_note の新規記事候補",
     targetAi: "ChatGPT",
     aiGoal: "draft",
@@ -239,7 +234,6 @@ function normalizeItem(item) {
     mainKeyword: String(item.mainKeyword || ""),
     subKeywords: String(item.subKeywords || ""),
     searchVolume: String(item.searchVolume || ""),
-    competition: String(item.competition || ""),
     source: String(item.source || ""),
     targetAi: item.targetAi === "Claude" ? "Claude" : "ChatGPT",
     aiGoal: LEGACY_GOAL_MAP[item.aiGoal] || "rewrite",
@@ -301,7 +295,6 @@ function bindEvents() {
       mainKeyword: formData.get("mainKeyword"),
       subKeywords: formData.get("subKeywords"),
       searchVolume: formData.get("searchVolume"),
-      competition: formData.get("competition"),
       source: formData.get("source"),
       targetAi: formData.get("targetAi"),
       aiGoal: formData.get("aiGoal"),
@@ -479,8 +472,7 @@ function getFilteredItems() {
         item.source,
         item.mainKeyword,
         item.subKeywords,
-        item.searchVolume,
-        item.competition
+        item.searchVolume
       ].join(" ").toLowerCase();
 
       const matchesSearch = !state.filters.search || haystack.includes(state.filters.search);
@@ -516,7 +508,6 @@ function makeEmptyItem() {
     mainKeyword: "",
     subKeywords: "",
     searchVolume: "",
-    competition: "",
     source: "",
     targetAi: "ChatGPT",
     aiGoal: "rewrite",
@@ -572,7 +563,6 @@ function buildPrompt(item) {
     item.mainKeyword ? `狙うキーワード: ${item.mainKeyword}` : "",
     item.subKeywords ? `関連キーワード: ${item.subKeywords}` : "",
     item.searchVolume ? `検索ボリューム: ${item.searchVolume}` : "",
-    item.competition ? `競合メモ: ${item.competition}` : "",
     "",
     "本文・メモ:",
     item.body || "未入力",
@@ -581,7 +571,7 @@ function buildPrompt(item) {
     item.source || "未入力",
     "",
     "やってほしいこと:",
-    ...buildPromptTasks(item.promptType, item.aiGoal),
+    ...buildPromptTasks(item.promptType, item.aiGoal, item),
     "",
     "必要なら、タイトル案と見出し案もあわせて提案してください。"
   ].join("\n");
@@ -627,13 +617,17 @@ function buildPromptIntro(promptType, aiGoal) {
   ];
 }
 
-function buildPromptTasks(promptType, aiGoal) {
+function buildPromptTasks(promptType, aiGoal, item) {
+  const competitionTask = item.mainKeyword || item.subKeywords || item.searchVolume
+    ? "このキーワードで戦えそうか、切り口を変えた方がよいかも判断してください。"
+    : "このテーマが戦えそうかどうかもあわせて判断してください。";
+
   if (aiGoal === "draft") {
     return [
       "1. note 記事の下書きを作ってください。",
       "2. 読みやすい構成と見出しを提案してください。",
       "3. 冒頭で興味を引く導入を入れてください。",
-      "4. 最後に、次に自分で足すとよい点を3つだけまとめてください。"
+      `4. ${competitionTask}`
     ];
   }
 
@@ -642,7 +636,7 @@ function buildPromptTasks(promptType, aiGoal) {
       "1. 改善が必要な点を優先順位つきで挙げてください。",
       "2. タイトル・導入・見出し・無料部分・有料導線を点検してください。",
       "3. 必要なら、直すべきタイトル案や見出し案を提案してください。",
-      "4. 最後に、修正すると効果が大きい順に3点だけまとめてください。"
+      `4. ${competitionTask}`
     ];
   }
 
@@ -651,7 +645,7 @@ function buildPromptTasks(promptType, aiGoal) {
       "1. タイトル案を3つ出してください。",
       "2. 検索意図に合う見出し構成に組み直してください。",
       "3. 冒頭3行を離脱しにくい形に書き換えてください。",
-      "4. 最後に、検索流入を伸ばすための改善点を3つだけまとめてください。"
+      `4. ${competitionTask}`
     ];
   }
 
@@ -660,7 +654,7 @@ function buildPromptTasks(promptType, aiGoal) {
       "1. 読みやすい形にリライトしてください。",
       "2. 必要ならタイトル案を3つ出してください。",
       "3. 必要なら見出し構成を組み直してください。",
-      "4. 最後に、直す優先順位を3点だけ短くまとめてください。"
+      `4. ${competitionTask}`
     ];
   }
 
@@ -668,7 +662,8 @@ function buildPromptTasks(promptType, aiGoal) {
     "1. 読みやすく、買いたくなる流れにリライトしてください。",
     "2. 必要ならタイトル案を3つ出してください。",
     "3. 必要なら見出し構成を組み直してください。",
-    "4. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。"
+    "4. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。",
+    `5. ${competitionTask}`
   ];
 }
 
@@ -719,7 +714,6 @@ function syncPromptFromForm() {
     mainKeyword: String(form.elements.namedItem("mainKeyword")?.value || ""),
     subKeywords: String(form.elements.namedItem("subKeywords")?.value || ""),
     searchVolume: String(form.elements.namedItem("searchVolume")?.value || ""),
-    competition: String(form.elements.namedItem("competition")?.value || ""),
     source: String(form.elements.namedItem("source")?.value || ""),
     targetAi: String(form.elements.namedItem("targetAi")?.value || "ChatGPT"),
     aiGoal: String(form.elements.namedItem("aiGoal")?.value || "rewrite"),
