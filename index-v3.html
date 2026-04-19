@@ -27,7 +27,7 @@
           <li>「種別」を `新規記事` か `リライト` にします。</li>
           <li>「本文・メモ」に下書きやコピペした文章をそのまま入れます。</li>
           <li>「参照URL・元記事」に見返したいURLや元記事の場所を書きます。</li>
-          <li>「次にやること」を1行で書くと、次の作業が迷いません。</li>
+          <li>「AIへの頼み方」で `リライトする / 下書きをする / チェックする` を選びます。</li>
         </ol>
       </section>
 
@@ -47,7 +47,7 @@
         <div class="toolbar">
           <label>
             <span>検索</span>
-            <input id="searchInput" type="search" placeholder="タイトル・本文・次にやることで検索">
+            <input id="searchInput" type="search" placeholder="タイトル・本文・キーワードで検索">
           </label>
           <label>
             <span>種別</span>
@@ -84,7 +84,7 @@
 
       <section class="panel quick-guide">
         <h2>URLから追加</h2>
-        <p>記事ページのURLを貼る用の欄です。親ページではなく、個別記事のURLを残してください。</p>
+        <p>親ページではなく、個別記事のURLを貼ってリライト候補に追加します。</p>
         <div class="editor-grid">
           <label class="full">
             <span>記事ページURL</span>
@@ -171,20 +171,8 @@
             <input name="competition" type="text" placeholder="例: 強い / 中くらい / 弱い">
           </label>
           <label class="full">
-            <span>タイトル案</span>
-            <textarea name="titleIdeas" rows="3" placeholder="狙うキーワードに沿ったタイトル案を複数メモ"></textarea>
-          </label>
-          <label class="full">
-            <span>見出し案</span>
-            <textarea name="headingIdeas" rows="5" placeholder="H2/H3のたたき台や見出し案をここにメモ"></textarea>
-          </label>
-          <label class="full">
             <span>参照URL・元記事</span>
             <textarea name="source" rows="4" placeholder="元記事URL、参考URL、見返したい記事やデータなど"></textarea>
-          </label>
-          <label class="full">
-            <span>次にやること</span>
-            <textarea name="nextAction" rows="3" placeholder="次の一手を1行で"></textarea>
           </label>
           <label>
             <span>使うAI</span>
@@ -196,11 +184,9 @@
           <label>
             <span>AIへの頼み方</span>
             <select name="aiGoal">
-              <option value="draft">下書きを作る</option>
-              <option value="clarity">わかりやすくする</option>
-              <option value="humanize">AIっぽさを減らす</option>
-              <option value="opinion">意見を強める</option>
               <option value="rewrite">リライトする</option>
+              <option value="draft">下書きをする</option>
+              <option value="check">チェックする</option>
             </select>
           </label>
           <label>
@@ -216,7 +202,6 @@
             <button class="primary-btn" type="submit">保存する</button>
             <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
             <button class="ghost-btn" type="button" id="markDoneBtn">投稿完了</button>
-            <button class="ghost-btn danger-btn" type="button" id="archiveBtn">完了扱いにする</button>
           </div>
         </form>
       </section>

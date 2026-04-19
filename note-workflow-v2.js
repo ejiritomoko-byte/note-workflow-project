@@ -6,11 +6,9 @@ const TYPE_LABELS = {
 };
 
 const GOAL_LABELS = {
-  draft: "下書きを作る",
-  clarity: "わかりやすくする",
-  humanize: "AIっぽさを減らす",
-  opinion: "意見を強める",
-  rewrite: "リライトする"
+  rewrite: "リライトする",
+  draft: "下書きをする",
+  check: "チェックする"
 };
 
 const PROMPT_TYPE_LABELS = {
@@ -54,14 +52,15 @@ const LEGACY_PRIORITY_MAP = {
 const LEGACY_GOAL_MAP = {
   "first-draft": "draft",
   draft: "draft",
-  "clarity-pass": "clarity",
-  clarity: "clarity",
-  "humanize-pass": "humanize",
-  humanize: "humanize",
-  "opinion-pass": "opinion",
-  opinion: "opinion",
+  "clarity-pass": "check",
+  clarity: "check",
+  "humanize-pass": "check",
+  humanize: "check",
+  "opinion-pass": "check",
+  opinion: "check",
   "rewrite-pass": "rewrite",
-  rewrite: "rewrite"
+  rewrite: "rewrite",
+  check: "check"
 };
 
 const LEGACY_PROMPT_TYPE_MAP = {
@@ -84,10 +83,7 @@ const seedItems = [
     subKeywords: "ChatGPT, 学習アプリ, 保護者, 小学生, 自作アプリ",
     searchVolume: "未確認",
     competition: "中",
-    titleIdeas: "AIで家庭学習アプリを自作してみた\n保護者向け、自分専用の学習アプリをAIで作る方法",
-    headingIdeas: "1. なぜ家庭学習アプリを自作するのか\n2. 実際に作ったアプリの例\n3. 無料でできる範囲\n4. 有料版で広がること",
     source: "https://note.com/moco_edu_note/n/nbd0f988a5c61",
-    nextAction: "タイトルをベネフィット型に直して、無料部分と有料部分の境界を整理する。",
     targetAi: "ChatGPT",
     aiGoal: "rewrite",
     promptType: "paid",
@@ -106,10 +102,7 @@ const seedItems = [
     subKeywords: "ChatGPT, Claude, 比較, 保護者, 家庭学習",
     searchVolume: "未確認",
     competition: "中〜強",
-    titleIdeas: "中学受験の国語に使えるAIはどれ？\n中学受験の国語に強いAIを比較してみた",
-    headingIdeas: "1. 国語でAIを使うときの注意点\n2. 比較したAI\n3. 結論\n4. 課金するならどれか",
     source: "https://note.com/moco_edu_note/n/n2e4b937c23fc",
-    nextAction: "タイトルを結論型に変えて、比較表とおすすめの使い分けを再構成する。",
     targetAi: "Claude",
     aiGoal: "rewrite",
     promptType: "paid",
@@ -128,12 +121,9 @@ const seedItems = [
     subKeywords: "家庭学習, 思考力, 保護者, 勉強習慣",
     searchVolume: "未確認",
     competition: "中",
-    titleIdeas: "子どもの考える力を引き出す3つの習慣\n考えない子にしないために親ができること",
-    headingIdeas: "1. なぜ考えなくなるのか\n2. 思考を止める環境\n3. 家庭でできること\n4. 3つの習慣",
     source: "https://note.com/moco_edu_note/n/ne661a9271f55",
-    nextAction: "冒頭に『言われたことしかやらない』『途中式を書かない』など具体悩みを追加する。",
     targetAi: "ChatGPT",
-    aiGoal: "clarity",
+    aiGoal: "check",
     promptType: "search",
     archived: false
   },
@@ -150,10 +140,7 @@ const seedItems = [
     subKeywords: "ビジネスコンテスト, 事業計画, 起業前, 失敗談",
     searchVolume: "未確認",
     competition: "中",
-    titleIdeas: "初めてビジコンに出る前に確認してほしいこと\n3年後のプランが事業判断を狂わせる理由",
-    headingIdeas: "1. なぜ出る前に止まってほしいのか\n2. 実際に見た違和感\n3. 締切の罠\n4. 出る前の確認項目",
     source: "https://note.com/learnfromfailure",
-    nextAction: "冒頭に『誰向けか』を明確にして、実体験の損失を先に出す。",
     targetAi: "Claude",
     aiGoal: "rewrite",
     promptType: "rewrite",
@@ -172,10 +159,7 @@ const seedItems = [
     subKeywords: "保護者, ChatGPT, 家庭学習サポート, 効率化",
     searchVolume: "未確認",
     competition: "中",
-    titleIdeas: "家庭学習でAIを使うと親はどこまでラクになる？\n保護者がAIを使うべき理由",
-    headingIdeas: "1. 親がしんどいポイント\n2. AIで減らせる作業\n3. 丸投げにしない使い方\n4. まず試す手順",
     source: "moco_edu_note の新規記事候補",
-    nextAction: "記事タイトル案を3つ出して、無料記事にするか決める。",
     targetAi: "ChatGPT",
     aiGoal: "draft",
     promptType: "search",
@@ -186,7 +170,7 @@ const seedItems = [
 const reviewChecklist = [
   "タイトルで何の記事かわかるか",
   "本文に読者の悩みが入っているか",
-  "次にやることが1行で書けているか",
+  "キーワードが自然に入っているか",
   "参照URLや元記事が残っているか"
 ];
 
@@ -256,12 +240,9 @@ function normalizeItem(item) {
     subKeywords: String(item.subKeywords || ""),
     searchVolume: String(item.searchVolume || ""),
     competition: String(item.competition || ""),
-    titleIdeas: String(item.titleIdeas || ""),
-    headingIdeas: String(item.headingIdeas || ""),
     source: String(item.source || ""),
-    nextAction: String(item.nextAction || ""),
     targetAi: item.targetAi === "Claude" ? "Claude" : "ChatGPT",
-    aiGoal: LEGACY_GOAL_MAP[item.aiGoal] || "draft",
+    aiGoal: LEGACY_GOAL_MAP[item.aiGoal] || "rewrite",
     promptType: LEGACY_PROMPT_TYPE_MAP[item.promptType] || "paid",
     archived: Boolean(item.archived)
   };
@@ -321,10 +302,7 @@ function bindEvents() {
       subKeywords: formData.get("subKeywords"),
       searchVolume: formData.get("searchVolume"),
       competition: formData.get("competition"),
-      titleIdeas: formData.get("titleIdeas"),
-      headingIdeas: formData.get("headingIdeas"),
       source: formData.get("source"),
-      nextAction: formData.get("nextAction"),
       targetAi: formData.get("targetAi"),
       aiGoal: formData.get("aiGoal"),
       promptType: formData.get("promptType")
@@ -353,23 +331,6 @@ function bindEvents() {
     renderAll();
   });
 
-  document.getElementById("archiveBtn").addEventListener("click", () => {
-    const selected = getSelectedItem();
-    if (!selected) {
-      return;
-    }
-
-    state.items = state.items.map((item) =>
-      item.id === selected.id
-        ? { ...item, archived: true, status: "公開OK", nextAction: "対応完了" }
-        : item
-    );
-
-    state.selectedId = getFilteredItems()[0]?.id || null;
-    saveItems();
-    renderAll();
-  });
-
   document.getElementById("markDoneBtn").addEventListener("click", () => {
     const selected = getSelectedItem();
     if (!selected) {
@@ -378,7 +339,7 @@ function bindEvents() {
 
     state.items = state.items.map((item) =>
       item.id === selected.id
-        ? { ...item, status: "公開OK", nextAction: "投稿完了" }
+        ? { ...item, status: "公開OK" }
         : item
     );
 
@@ -454,7 +415,7 @@ function renderBoard() {
 
 function renderCard(item) {
   const activeClass = item.id === state.selectedId ? "active" : "";
-  const preview = item.nextAction || excerptText(item.body, 100) || "まだメモがありません。";
+  const preview = excerptText(item.body, 100) || "まだメモがありません。";
   const dueLine = item.due ? `締切: ${item.due}` : "締切: 未設定";
 
   return `
@@ -512,9 +473,17 @@ function getFilteredItems() {
         return false;
       }
 
-      const haystack = [item.title, item.body, item.source, item.nextAction].join(" ").toLowerCase();
-      const keywordText = [item.mainKeyword, item.subKeywords, item.titleIdeas, item.headingIdeas, item.searchVolume, item.competition].join(" ").toLowerCase();
-      const matchesSearch = !state.filters.search || haystack.includes(state.filters.search) || keywordText.includes(state.filters.search);
+      const haystack = [
+        item.title,
+        item.body,
+        item.source,
+        item.mainKeyword,
+        item.subKeywords,
+        item.searchVolume,
+        item.competition
+      ].join(" ").toLowerCase();
+
+      const matchesSearch = !state.filters.search || haystack.includes(state.filters.search);
       const matchesType = state.filters.type === "all" || item.type === state.filters.type;
       const matchesStatus = state.filters.status === "all" || item.status === state.filters.status;
       const matchesPriority = state.filters.priority === "all" || item.priority === state.filters.priority;
@@ -548,12 +517,9 @@ function makeEmptyItem() {
     subKeywords: "",
     searchVolume: "",
     competition: "",
-    titleIdeas: "",
-    headingIdeas: "",
     source: "",
-    nextAction: "",
     targetAi: "ChatGPT",
-    aiGoal: "draft",
+    aiGoal: "rewrite",
     promptType: "paid",
     archived: false
   };
@@ -569,10 +535,8 @@ function captureUrlAsItem() {
   const item = makeEmptyItem();
   item.type = "rewrite";
   item.status = "ネタ";
-  item.priority = "中";
   item.source = rawUrl;
   item.body = memo;
-  item.nextAction = "記事ページを見て、リライト候補かどうか確認する。";
   item.title = guessTitleFromUrl(rawUrl);
   item.account = rawUrl.includes("learnfromfailure") ? "learnfromfailure" : "moco_edu_note";
 
@@ -585,12 +549,20 @@ function captureUrlAsItem() {
   captureMemoInput.value = "";
 }
 
-function buildPrompt(item) {
-  const introLines = buildPromptIntro(item.promptType);
+function guessTitleFromUrl(url) {
+  try {
+    const parsed = new URL(url);
+    const lastPath = parsed.pathname.split("/").filter(Boolean).pop() || "新しい項目";
+    return `URL追加: ${lastPath}`;
+  } catch (error) {
+    return "URL追加: リライト候補";
+  }
+}
 
+function buildPrompt(item) {
   return [
     `以下の note 記事について、${GOAL_LABELS[item.aiGoal]}のを手伝ってください。`,
-    ...introLines,
+    ...buildPromptIntro(item.promptType, item.aiGoal),
     "",
     `タイトル: ${item.title}`,
     `アカウント: ${item.account}`,
@@ -605,26 +577,33 @@ function buildPrompt(item) {
     "本文・メモ:",
     item.body || "未入力",
     "",
-    "次にやること:",
-    item.nextAction || "未入力",
-    "",
-    "タイトル案:",
-    item.titleIdeas || "未入力",
-    "",
-    "見出し案:",
-    item.headingIdeas || "未入力",
-    "",
     "参照URL・元記事:",
     item.source || "未入力",
     "",
     "やってほしいこと:",
-    ...buildPromptTasks(item.promptType),
+    ...buildPromptTasks(item.promptType, item.aiGoal),
     "",
-    "最後に、次に直すとよい点を短く教えてください。"
+    "必要なら、タイトル案と見出し案もあわせて提案してください。"
   ].join("\n");
 }
 
-function buildPromptIntro(promptType) {
+function buildPromptIntro(promptType, aiGoal) {
+  if (aiGoal === "draft") {
+    return [
+      "狙うキーワードを不自然にならない範囲でタイトル・見出し・冒頭に反映してください。",
+      "note 記事として読みやすい下書きの骨組みを作ってください。",
+      "タイトル案や見出し案は、必要に応じて提案してください。"
+    ];
+  }
+
+  if (aiGoal === "check") {
+    return [
+      "本文をいきなり書き換えるより、弱いところや改善ポイントを先に点検してください。",
+      "特に、導入・キーワードの入り方・無料部分の引き・有料へのつながりを見てください。",
+      "必要なら、直した方がよいタイトル案や見出し案も提案してください。"
+    ];
+  }
+
   if (promptType === "search") {
     return [
       "狙うキーワードを不自然にならない範囲でタイトル・見出し・冒頭に反映してください。",
@@ -648,7 +627,25 @@ function buildPromptIntro(promptType) {
   ];
 }
 
-function buildPromptTasks(promptType) {
+function buildPromptTasks(promptType, aiGoal) {
+  if (aiGoal === "draft") {
+    return [
+      "1. note 記事の下書きを作ってください。",
+      "2. 読みやすい構成と見出しを提案してください。",
+      "3. 冒頭で興味を引く導入を入れてください。",
+      "4. 最後に、次に自分で足すとよい点を3つだけまとめてください。"
+    ];
+  }
+
+  if (aiGoal === "check") {
+    return [
+      "1. 改善が必要な点を優先順位つきで挙げてください。",
+      "2. タイトル・導入・見出し・無料部分・有料導線を点検してください。",
+      "3. 必要なら、直すべきタイトル案や見出し案を提案してください。",
+      "4. 最後に、修正すると効果が大きい順に3点だけまとめてください。"
+    ];
+  }
+
   if (promptType === "search") {
     return [
       "1. タイトル案を3つ出してください。",
@@ -660,18 +657,18 @@ function buildPromptTasks(promptType) {
 
   if (promptType === "rewrite") {
     return [
-      "1. タイトル案を3つ出してください。",
-      "2. 見出し構成を読みやすく組み直してください。",
-      "3. 元記事の良さを残しつつ、弱い導入と読みにくい箇所を改善してください。",
+      "1. 読みやすい形にリライトしてください。",
+      "2. 必要ならタイトル案を3つ出してください。",
+      "3. 必要なら見出し構成を組み直してください。",
       "4. 最後に、直す優先順位を3点だけ短くまとめてください。"
     ];
   }
 
   return [
-    "1. タイトル案を3つ出してください。",
-    "2. 見出し構成を読みやすく組み直してください。",
-    "3. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。",
-    "4. 最後に、直す優先順位を3点だけ短くまとめてください。"
+    "1. 読みやすく、買いたくなる流れにリライトしてください。",
+    "2. 必要ならタイトル案を3つ出してください。",
+    "3. 必要なら見出し構成を組み直してください。",
+    "4. 無料部分でどこまで見せて、どこから先を有料にするとよいか提案してください。"
   ];
 }
 
@@ -680,17 +677,12 @@ function buildImagePrompt(item) {
     ? "落ち着いた、知的で少し緊張感のある note サムネイル"
     : "やわらかく信頼感があり、保護者が読みたくなる note サムネイル";
 
-  const keywordLine = item.mainKeyword ? `メインキーワードは「${item.mainKeyword}」です。` : "";
-  const subKeywordLine = item.subKeywords ? `関連キーワードは「${item.subKeywords}」です。` : "";
-  const titleHint = item.titleIdeas ? `タイトル案の方向性は「${item.titleIdeas.split("\n")[0]}」です。` : "";
-
   return [
     "note のメイン画像を作りたいです。",
     `雰囲気は「${style}」にしてください。`,
     "ChatGPT の画像生成でそのまま使える、具体的でわかりやすい指示にしてください。",
-    keywordLine,
-    subKeywordLine,
-    titleHint,
+    item.mainKeyword ? `メインキーワードは「${item.mainKeyword}」です。` : "",
+    item.subKeywords ? `関連キーワードは「${item.subKeywords}」です。` : "",
     `記事タイトルは「${item.title}」です。`,
     `記事の種別は「${TYPE_LABELS[item.type]}」、進み具合は「${item.status}」です。`,
     "",
@@ -705,16 +697,6 @@ function buildImagePrompt(item) {
     "",
     "この条件に合う画像生成プロンプトを、日本語でそのまま使える形で作成してください。"
   ].filter(Boolean).join("\n");
-}
-
-function guessTitleFromUrl(url) {
-  try {
-    const parsed = new URL(url);
-    const lastPath = parsed.pathname.split("/").filter(Boolean).pop() || "新しい項目";
-    return `URL追加: ${lastPath}`;
-  } catch (error) {
-    return "URL追加: リライト候補";
-  }
 }
 
 function syncPromptFromForm() {
@@ -738,17 +720,16 @@ function syncPromptFromForm() {
     subKeywords: String(form.elements.namedItem("subKeywords")?.value || ""),
     searchVolume: String(form.elements.namedItem("searchVolume")?.value || ""),
     competition: String(form.elements.namedItem("competition")?.value || ""),
-    titleIdeas: String(form.elements.namedItem("titleIdeas")?.value || ""),
-    headingIdeas: String(form.elements.namedItem("headingIdeas")?.value || ""),
     source: String(form.elements.namedItem("source")?.value || ""),
-    nextAction: String(form.elements.namedItem("nextAction")?.value || ""),
     targetAi: String(form.elements.namedItem("targetAi")?.value || "ChatGPT"),
-    aiGoal: String(form.elements.namedItem("aiGoal")?.value || "draft"),
+    aiGoal: String(form.elements.namedItem("aiGoal")?.value || "rewrite"),
     promptType: String(form.elements.namedItem("promptType")?.value || "paid")
   });
 
   promptOutput.value = buildPrompt(draftItem);
-  imagePromptOutput.value = draftItem.targetAi === "ChatGPT" ? buildImagePrompt(draftItem) : "ChatGPT を選ぶと、ここにメイン画像用のプロンプトが表示されます。";
+  imagePromptOutput.value = draftItem.targetAi === "ChatGPT"
+    ? buildImagePrompt(draftItem)
+    : "ChatGPT を選ぶと、ここにメイン画像用のプロンプトが表示されます。";
 }
 
 async function copyTextWithFeedback(text, button, target) {
@@ -763,7 +744,7 @@ async function copyTextWithFeedback(text, button, target) {
       return;
     }
   } catch (error) {
-    // Fallback below.
+    // fallback
   }
 
   const helper = document.createElement("textarea");
