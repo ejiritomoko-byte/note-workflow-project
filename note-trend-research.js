@@ -1,5 +1,5 @@
-const STORAGE_KEY = "note-trend-research-v1";
-const PROFILE_STORAGE_KEY = "note-trend-profile-v1";
+const STORAGE_KEY = "note-trend-research-v2";
+const PROFILE_STORAGE_KEY = "note-trend-profile-v2";
 
 const PROFILE_PRESETS = {
   moco: {
@@ -215,6 +215,11 @@ function init() {
     state.selectedId = state.items[0].id;
   }
 
+  state.items = state.items.filter((item) => isReferenceCandidate(item) || !item.url);
+  if (!state.items.some((item) => item.id === state.selectedId)) {
+    state.selectedId = state.items[0]?.id || null;
+  }
+
   bindEvents();
   markRefresh("insights");
   markRefresh("feed");
@@ -232,7 +237,7 @@ function loadItems() {
     if (!Array.isArray(parsed) || parsed.length === 0) {
       return structuredClone(DEFAULT_ITEMS);
     }
-    return parsed.map(normalizeItem);
+    return parsed.map(normalizeItem).filter((item) => isReferenceCandidate(item) || !item.url);
   } catch (error) {
     return structuredClone(DEFAULT_ITEMS);
   }
