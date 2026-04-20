@@ -103,6 +103,7 @@
               <option value="popular">人気記事</option>
               <option value="hashtag">ハッシュタグ観測</option>
               <option value="official">公式発表</option>
+              <option value="youtube">YouTube動画</option>
             </select>
           </label>
           <label>
@@ -145,6 +146,7 @@
                   <option value="popular">人気記事</option>
                   <option value="hashtag">ハッシュタグ観測</option>
                   <option value="official">公式発表</option>
+                  <option value="youtube">YouTube動画</option>
                 </select>
               </label>
               <label>
@@ -307,7 +309,10 @@
             <h2>自分のnoteを育てる</h2>
             <p>あなたの発信テーマを入れると、観測データを参考にしたタイトル案と育成アクションを出します。</p>
           </div>
-          <button class="primary-btn" id="saveProfileBtn" type="button">設定を保存</button>
+          <div class="panel-actions">
+            <button class="ghost-btn" id="fetchYoutubeBtn" type="button">YouTube動画を取り込む</button>
+            <button class="primary-btn" id="saveProfileBtn" type="button">設定を保存</button>
+          </div>
         </div>
         <div class="strategy-grid">
           <article class="strategy-card">
@@ -338,6 +343,18 @@
               <label class="full">
                 <span>自分の強み</span>
                 <textarea name="strengths" rows="4" placeholder="例: 実体験、教育経験、AIツールの比較ができる"></textarea>
+              </label>
+              <label class="full">
+                <span>YouTube APIキー</span>
+                <input name="youtubeApiKey" type="password" placeholder="Google Cloud の YouTube Data API キー">
+              </label>
+              <label class="full">
+                <span>YouTube検索語</span>
+                <textarea name="youtubeQueries" rows="4" placeholder="1行に1つずつ。例: note 収益化"></textarea>
+              </label>
+              <label>
+                <span>YouTube取得件数</span>
+                <input name="youtubeMaxResults" type="number" min="1" max="10" step="1" placeholder="例: 6">
               </label>
             </form>
           </article>

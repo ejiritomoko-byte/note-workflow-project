@@ -49,7 +49,8 @@ const LIVE_SOURCES = [
 const SOURCE_LABELS = {
   popular: "人気記事",
   hashtag: "ハッシュタグ観測",
-  official: "公式発表"
+  official: "公式発表",
+  youtube: "YouTube動画"
 };
 
 const STATUS_LABELS = {
@@ -270,6 +271,7 @@ function normalizeItem(item) {
     publishedAt: normalizeDate(item.publishedAt),
     likes: normalizeNumber(item.likes),
     comments: normalizeNumber(item.comments),
+    views: normalizeNumber(item.views),
     author: String(item.author || ""),
     category: String(item.category || ""),
     tags: normalizeTags(item.tags),
@@ -285,7 +287,10 @@ function normalizeProfile(profile) {
     noteTheme: String(profile.noteTheme || "AIを使った記事作成と発信改善"),
     targetReader: String(profile.targetReader || "noteを書きたいけれど、何を書けば読まれるか迷っている人"),
     monetizeTarget: String(profile.monetizeTarget || "有料noteとテンプレート"),
-    strengths: String(profile.strengths || "実体験ベースで説明できること、AIツールの活用例を出せること")
+    strengths: String(profile.strengths || "実体験ベースで説明できること、AIツールの活用例を出せること"),
+    youtubeApiKey: String(profile.youtubeApiKey || ""),
+    youtubeQueries: String(profile.youtubeQueries || "note 収益化\nnote 稼ぎ方\n有料note 作り方"),
+    youtubeMaxResults: String(profile.youtubeMaxResults || "6")
   };
 }
 
@@ -424,6 +429,11 @@ function bindEvents() {
     return "プロフィール設定を保存しました。";
   });
 
+  bindButtonAction("fetchYoutubeBtn", async () => {
+    await fetchYoutubeObservations();
+    return null;
+  }, "YouTube動画を取得中です...");
+
   bindButtonAction("presetMocoBtn", () => {
     applyProfilePreset("moco");
     return "moco_edu_note 用の設定に切り替えました。";
@@ -548,15 +558,16 @@ function renderRefreshMeta() {
 
 function renderStats() {
   const items = state.items;
-  const totalLikes = items.reduce((sum, item) => sum + item.likes, 0);
+  const noteItems = items.filter((item) => item.sourceType !== "youtube");
+  const totalLikes = noteItems.reduce((sum, item) => sum + item.likes, 0);
   const trackedThemes = uniqueCount(items.map((item) => item.category).filter(Boolean));
-  const avgLikes = items.length ? Math.round(totalLikes / items.length) : 0;
+  const youtubeCount = items.filter((item) => item.sourceType === "youtube").length;
 
   const stats = [
-    { label: "観測件数", value: items.length, note: "人気記事と公式発表の合計" },
+    { label: "観測件数", value: items.length, note: "人気記事・公式発表・YouTubeの合計" },
     { label: "総スキ数", value: totalLikes, note: "人気記事・ハッシュタグ観測分" },
     { label: "追跡テーマ数", value: trackedThemes, note: "カテゴリのユニーク数" },
-    { label: "平均スキ", value: avgLikes, note: "観測全体の平均" }
+    { label: "YouTube動画数", value: youtubeCount, note: "動画観測として取り込んだ件数" }
   ];
 
   statsGrid.innerHTML = stats.map((stat) => `
@@ -592,7 +603,7 @@ function renderObservationCard(item) {
   const activeClass = item.id === state.selectedId ? "active" : "";
   const summary = item.summary || item.takeaway || "要約メモはまだありません。";
   const tags = item.tags.slice(0, 3).map((tag) => `<span class="chip">${escapeHtml(tag)}</span>`).join("");
-  const metric = item.sourceType === "official" ? "公式" : `${item.likes} スキ`;
+  const metric = getObservationMetric(item);
 
   return `
     <button class="card-item ${activeClass}" type="button" data-id="${item.id}">
@@ -654,7 +665,7 @@ function renderOfficialList() {
 function renderWatchlist() {
   const items = state.items
     .filter((item) => item.sourceType !== "official")
-    .sort((a, b) => b.likes - a.likes)
+    .sort((a, b) => getSortMetric(b) - getSortMetric(a))
     .slice(0, 4);
 
   watchlist.innerHTML = items.length
@@ -665,7 +676,9 @@ function renderWatchlist() {
 function renderMiniItem(item) {
   const subline = item.sourceType === "official"
     ? `${item.publishedAt || "日付未設定"} / ${item.sourceLabel || "note公式"}`
-    : `${item.likes} スキ / ${item.category || "カテゴリ未設定"}`;
+    : item.sourceType === "youtube"
+      ? `${formatCompactNumber(item.views)}再生 / ${item.author || "YouTube"}`
+      : `${item.likes} スキ / ${item.category || "カテゴリ未設定"}`;
 
   return `
     <article class="mini-item">
@@ -701,7 +714,7 @@ function getFilteredItems() {
 
 function compareItems(a, b) {
   if (state.filters.sort === "newest") {
-    return compareByDate(b.observedAt || b.publishedAt, a.observedAt || a.publishedAt) || b.likes - a.likes;
+    return compareByDate(b.observedAt || b.publishedAt, a.observedAt || a.publishedAt) || getSortMetric(b) - getSortMetric(a);
   }
 
   if (state.filters.sort === "official") {
@@ -711,14 +724,18 @@ function compareItems(a, b) {
     if (a.sourceType !== "official" && b.sourceType === "official") {
       return 1;
     }
-    return compareByDate(b.publishedAt || b.observedAt, a.publishedAt || a.observedAt) || b.likes - a.likes;
+    return compareByDate(b.publishedAt || b.observedAt, a.publishedAt || a.observedAt) || getSortMetric(b) - getSortMetric(a);
   }
 
-  return b.likes - a.likes || compareByDate(b.observedAt || b.publishedAt, a.observedAt || a.publishedAt);
+  return getSortMetric(b) - getSortMetric(a) || compareByDate(b.observedAt || b.publishedAt, a.observedAt || a.publishedAt);
 }
 
 function compareByDate(a, b) {
   return String(a || "").localeCompare(String(b || ""));
+}
+
+function getSortMetric(item) {
+  return item.sourceType === "youtube" ? item.views : item.likes;
 }
 
 function getSelectedItem() {
@@ -735,6 +752,7 @@ function makeEmptyItem() {
     publishedAt: "",
     likes: 0,
     comments: 0,
+    views: 0,
     author: "",
     category: "",
     tags: [],
@@ -760,7 +778,10 @@ function syncProfileFromForm() {
     noteTheme: formData.get("noteTheme"),
     targetReader: formData.get("targetReader"),
     monetizeTarget: formData.get("monetizeTarget"),
-    strengths: formData.get("strengths")
+    strengths: formData.get("strengths"),
+    youtubeApiKey: formData.get("youtubeApiKey"),
+    youtubeQueries: formData.get("youtubeQueries"),
+    youtubeMaxResults: formData.get("youtubeMaxResults")
   });
 }
 
@@ -931,6 +952,181 @@ async function fetchSourceHtml(url) {
   throw new Error(`Unable to fetch ${url}`);
 }
 
+async function fetchYoutubeObservations() {
+  syncProfileFromForm();
+  saveProfile();
+
+  const apiKey = state.profile.youtubeApiKey.trim();
+  if (!apiKey) {
+    setAppStatus("YouTube APIキーを入れると動画を取得できます。");
+    return;
+  }
+
+  const queries = state.profile.youtubeQueries
+    .split("\n")
+    .map((query) => query.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (!queries.length) {
+    setAppStatus("YouTube検索語を1つ以上入れてください。");
+    return;
+  }
+
+  const maxResults = Math.max(1, Math.min(10, Number(state.profile.youtubeMaxResults) || 6));
+  const searchResults = await Promise.all(
+    queries.map((query) => fetchYoutubeSearchResults(apiKey, query, maxResults))
+  );
+
+  const uniqueByVideo = new Map();
+  searchResults.flat().forEach((item) => {
+    uniqueByVideo.set(item.videoId, item);
+  });
+
+  const videoIds = [...uniqueByVideo.keys()];
+  if (!videoIds.length) {
+    setAppStatus("YouTube動画が見つかりませんでした。検索語を見直してください。");
+    return;
+  }
+
+  const details = await fetchYoutubeVideoDetails(apiKey, videoIds);
+  const observations = [...uniqueByVideo.values()]
+    .map((item) => buildYoutubeObservation(item, details.get(item.videoId)))
+    .filter(Boolean);
+
+  mergeFetchedItems(observations);
+  saveItems();
+  markRefresh("insights");
+  markRefresh("feed");
+  renderAll();
+  setAppStatus(`${observations.length} 件のYouTube動画を取り込みました。`);
+}
+
+async function fetchYoutubeSearchResults(apiKey, query, maxResults) {
+  const params = new URLSearchParams({
+    part: "snippet",
+    q: query,
+    type: "video",
+    maxResults: String(maxResults),
+    order: "relevance",
+    regionCode: "JP",
+    relevanceLanguage: "ja",
+    key: apiKey
+  });
+
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`YouTube search failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return (data.items || []).map((item) => ({
+    query,
+    videoId: item.id?.videoId || "",
+    title: item.snippet?.title || "",
+    description: item.snippet?.description || "",
+    publishedAt: normalizeDate((item.snippet?.publishedAt || "").slice(0, 10)),
+    channelTitle: item.snippet?.channelTitle || "YouTube"
+  })).filter((item) => item.videoId && item.title);
+}
+
+async function fetchYoutubeVideoDetails(apiKey, videoIds) {
+  const params = new URLSearchParams({
+    part: "snippet,statistics",
+    id: videoIds.slice(0, 50).join(","),
+    key: apiKey
+  });
+
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params.toString()}`);
+  if (!response.ok) {
+    throw new Error(`YouTube videos failed: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const detailMap = new Map();
+
+  (data.items || []).forEach((item) => {
+    detailMap.set(item.id, item);
+  });
+
+  return detailMap;
+}
+
+function buildYoutubeObservation(searchItem, detailItem) {
+  const statistics = detailItem?.statistics || {};
+  const views = normalizeNumber(statistics.viewCount);
+  const likes = normalizeNumber(statistics.likeCount);
+  const comments = normalizeNumber(statistics.commentCount);
+  const tags = inferYoutubeTags(searchItem, detailItem);
+  const monetization = inferYoutubeMonetization(searchItem.title, searchItem.description);
+
+  return normalizeItem({
+    id: crypto.randomUUID(),
+    title: searchItem.title,
+    sourceType: "youtube",
+    status: "watch",
+    observedAt: todayLocalDate(),
+    publishedAt: searchItem.publishedAt,
+    likes,
+    comments,
+    views,
+    author: searchItem.channelTitle,
+    category: "YouTube note収益化",
+    tags,
+    url: `https://www.youtube.com/watch?v=${searchItem.videoId}`,
+    summary: buildYoutubeSummary(searchItem, views, likes, monetization),
+    takeaway: buildYoutubeTakeaway(searchItem, monetization, tags),
+    sourceLabel: `YouTube検索: ${searchItem.query}`
+  });
+}
+
+function buildYoutubeSummary(searchItem, views, likes, monetization) {
+  const metrics = views ? `${formatCompactNumber(views)}再生` : "再生数は未取得";
+  const likesLine = likes ? `、高評価は ${formatCompactNumber(likes)} 件。` : "。";
+  return `${searchItem.query} で見つかったYouTube動画。${metrics}${likesLine} 概要欄やタイトルからは ${monetization} の文脈が強く、noteをどう売るか・どう集客するかを扱う観測候補として使える。`;
+}
+
+function buildYoutubeTakeaway(searchItem, monetization, tags) {
+  const tagLine = tags.length ? `${tags.slice(0, 3).join("、")} を軸にすると近い記事テーマに変換しやすい。` : "";
+  return `YouTubeでは ${monetization} の切り口が前面に出やすい。動画タイトルの悩み訴求をそのままnote向けに翻訳し、無料記事で問題提起、有料noteで具体策を見せる流れが作れそう。 ${tagLine}`.trim();
+}
+
+function inferYoutubeTags(searchItem, detailItem) {
+  const text = [searchItem.query, searchItem.title, searchItem.description, ...(detailItem?.snippet?.tags || [])].join(" ");
+  const candidates = [
+    "note収益化",
+    "有料note",
+    "副業",
+    "コンテンツ販売",
+    "SNS集客",
+    "Brain",
+    "ノート販売",
+    "マネタイズ",
+    "AI活用"
+  ];
+
+  return candidates.filter((candidate) => text.toLowerCase().includes(candidate.toLowerCase())).slice(0, 5);
+}
+
+function inferYoutubeMonetization(title, description) {
+  const haystack = `${title} ${description}`.toLowerCase();
+
+  if (haystack.includes("brain")) {
+    return "Brainや情報商材の販売";
+  }
+  if (haystack.includes("コンサル") || haystack.includes("相談")) {
+    return "コンサルや相談導線";
+  }
+  if (haystack.includes("有料note") || haystack.includes("note販売")) {
+    return "有料note販売";
+  }
+  if (haystack.includes("アフィリエイト")) {
+    return "アフィリエイト";
+  }
+
+  return "noteの集客・販売";
+}
+
 function parseLatestItemsFromHtml(html, source) {
   if (html.trim().startsWith("Title:")) {
     return parseJinaTextItems(html, source);
@@ -1032,7 +1228,12 @@ function mergeFetchedItems(fetchedItems) {
         observedAt: todayLocalDate(),
         sourceLabel: item.sourceLabel,
         category: item.category || existing.category,
-        tags: item.tags?.length ? item.tags : existing.tags
+        tags: item.tags?.length ? item.tags : existing.tags,
+        views: item.views || existing.views,
+        likes: item.likes || existing.likes,
+        comments: item.comments || existing.comments,
+        summary: item.summary || existing.summary,
+        takeaway: item.takeaway || existing.takeaway
       });
       return;
     }
@@ -1193,6 +1394,10 @@ function buildObservationSummary(item) {
   const sourceLabel = SOURCE_LABELS[item.sourceType];
   const likeLine = item.sourceType === "official"
     ? "公式発表として、企画や機能変更の流れを把握する材料になる。"
+    : item.sourceType === "youtube"
+      ? item.views > 0
+        ? `${formatCompactNumber(item.views)}再生の動画で、YouTube上で反応のある切り口を確認する材料になる。`
+        : "YouTube動画として、どんな訴求が使われているかを見る材料になる。"
     : item.likes > 0
       ? `${item.likes}スキの反応があり、一定の需要が見えている。`
       : "まだ反応数は未確認だが、切り口の検証候補になる。";
@@ -1738,6 +1943,24 @@ async function importItems(event) {
   } finally {
     event.target.value = "";
   }
+}
+
+function getObservationMetric(item) {
+  if (item.sourceType === "official") {
+    return "公式";
+  }
+  if (item.sourceType === "youtube") {
+    return `${formatCompactNumber(item.views)} 再生`;
+  }
+  return `${item.likes} スキ`;
+}
+
+function formatCompactNumber(value) {
+  const num = Number(value) || 0;
+  if (num >= 10000) {
+    return `${(num / 10000).toFixed(1).replace(/\.0$/, "")}万`;
+  }
+  return `${num}`;
 }
 
 function excerpt(value, maxLength) {
