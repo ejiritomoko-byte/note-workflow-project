@@ -876,23 +876,21 @@ function refreshInsights() {
   saveProfile();
   syncSelectedItemFromForm();
   markRefresh("insights");
-  renderStats();
-  renderStrategy();
-  renderPersonalGuidance();
-  renderRefreshMeta();
+  renderAll();
 }
 
 function refreshFeed() {
   syncSelectedItemFromForm();
   markRefresh("feed");
-  renderObservationList();
-  renderForm();
-  renderOfficialList();
-  renderWatchlist();
-  renderRefreshMeta();
+  renderAll();
 }
 
 async function fetchLatestSources() {
+  if (isFileProtocol()) {
+    setAppStatus("file:// で開いているため、外部サイトからの最新取得がブラウザにブロックされています。ローカルサーバーで開くと安定します。");
+    return;
+  }
+
   setAppStatus("最新データを取得中です...");
 
   try {
@@ -953,6 +951,11 @@ async function fetchSourceHtml(url) {
 }
 
 async function fetchYoutubeObservations() {
+  if (isFileProtocol()) {
+    setAppStatus("file:// で開いているため、YouTube API の取得がブラウザにブロックされることがあります。ローカルサーバーで開いて試してください。");
+    return;
+  }
+
   syncProfileFromForm();
   saveProfile();
 
@@ -1826,7 +1829,8 @@ function formatRefreshTime(date) {
     month: "numeric",
     day: "numeric",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
+    second: "2-digit"
   }).format(date);
 }
 
@@ -1983,4 +1987,8 @@ function escapeHtml(value) {
 
 function setAppStatus(message) {
   fetchStatusLabel.textContent = message;
+}
+
+function isFileProtocol() {
+  return window.location.protocol === "file:";
 }
