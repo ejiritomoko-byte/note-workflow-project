@@ -104,6 +104,9 @@
               <option value="hashtag">ハッシュタグ観測</option>
               <option value="official">公式発表</option>
               <option value="youtube">YouTube動画</option>
+              <option value="x">X投稿</option>
+              <option value="instagram">Instagram投稿</option>
+              <option value="threads">Threads投稿</option>
             </select>
           </label>
           <label>
@@ -147,6 +150,9 @@
                   <option value="hashtag">ハッシュタグ観測</option>
                   <option value="official">公式発表</option>
                   <option value="youtube">YouTube動画</option>
+                  <option value="x">X投稿</option>
+                  <option value="instagram">Instagram投稿</option>
+                  <option value="threads">Threads投稿</option>
                 </select>
               </label>
               <label>
@@ -311,6 +317,7 @@
           </div>
           <div class="panel-actions">
             <button class="ghost-btn" id="fetchYoutubeBtn" type="button">YouTube動画を取り込む</button>
+            <button class="ghost-btn" id="importSocialBtn" type="button">SNS投稿を取り込む</button>
             <button class="primary-btn" id="saveProfileBtn" type="button">設定を保存</button>
           </div>
         </div>
@@ -355,6 +362,18 @@
               <label>
                 <span>YouTube取得件数</span>
                 <input name="youtubeMaxResults" type="number" min="1" max="10" step="1" placeholder="例: 6">
+              </label>
+              <label class="full">
+                <span>SNS参考メモ</span>
+                <textarea name="socialResearchInput" rows="8" placeholder="1件ごとに空行で区切って、URLとメモを貼ります。例:
+https://x.com/example/status/123456789
+title: note収益化で最初にやること
+author: 発信者名
+likes: 320
+comments: 18
+views: 12000
+tags: note収益化, X運用, 集客
+本文やキャプションの要点をここに貼る"></textarea>
               </label>
             </form>
           </article>

@@ -18,24 +18,6 @@ const PROFILE_PRESETS = {
 
 const LIVE_SOURCES = [
   {
-    key: "moco_edu_note",
-    url: "https://note.com/moco_edu_note",
-    author: "moco 教育×AI×心理学",
-    sourceType: "popular",
-    category: "教育・AI",
-    tags: ["中学受験", "家庭学習", "教育とAI"],
-    sourceLabel: "自動取得 moco_edu_note"
-  },
-  {
-    key: "learnfromfailure",
-    url: "https://note.com/learnfromfailure",
-    author: "失敗から学ぶ起業",
-    sourceType: "popular",
-    category: "起業判断",
-    tags: ["起業", "失敗から学ぶ", "ビジコン"],
-    sourceLabel: "自動取得 learnfromfailure"
-  },
-  {
     key: "note_official",
     url: "https://note.com/info",
     author: "note公式",
@@ -46,11 +28,19 @@ const LIVE_SOURCES = [
   }
 ];
 
+const OWN_NOTE_URL_PREFIXES = [
+  "https://note.com/moco_edu_note",
+  "https://note.com/learnfromfailure"
+];
+
 const SOURCE_LABELS = {
   popular: "人気記事",
   hashtag: "ハッシュタグ観測",
   official: "公式発表",
-  youtube: "YouTube動画"
+  youtube: "YouTube動画",
+  x: "X投稿",
+  instagram: "Instagram投稿",
+  threads: "Threads投稿"
 };
 
 const STATUS_LABELS = {
@@ -290,7 +280,8 @@ function normalizeProfile(profile) {
     strengths: String(profile.strengths || "実体験ベースで説明できること、AIツールの活用例を出せること"),
     youtubeApiKey: String(profile.youtubeApiKey || ""),
     youtubeQueries: String(profile.youtubeQueries || "note 収益化\nnote 稼ぎ方\n有料note 作り方"),
-    youtubeMaxResults: String(profile.youtubeMaxResults || "6")
+    youtubeMaxResults: String(profile.youtubeMaxResults || "6"),
+    socialResearchInput: String(profile.socialResearchInput || "")
   };
 }
 
@@ -434,6 +425,11 @@ function bindEvents() {
     return null;
   }, "YouTube動画を取得中です...");
 
+  bindButtonAction("importSocialBtn", () => {
+    importSocialObservations();
+    return null;
+  }, "SNS投稿を観測データに変換しています...");
+
   bindButtonAction("presetMocoBtn", () => {
     applyProfilePreset("moco");
     return "moco_edu_note 用の設定に切り替えました。";
@@ -557,17 +553,18 @@ function renderRefreshMeta() {
 }
 
 function renderStats() {
-  const items = state.items;
+  const items = state.items.filter((item) => !isOwnNoteItem(item));
   const noteItems = items.filter((item) => item.sourceType !== "youtube");
   const totalLikes = noteItems.reduce((sum, item) => sum + item.likes, 0);
   const trackedThemes = uniqueCount(items.map((item) => item.category).filter(Boolean));
   const youtubeCount = items.filter((item) => item.sourceType === "youtube").length;
+  const socialCount = items.filter((item) => isSocialSourceType(item.sourceType)).length;
 
   const stats = [
-    { label: "観測件数", value: items.length, note: "人気記事・公式発表・YouTubeの合計" },
+    { label: "観測件数", value: items.length, note: "人気記事・公式発表・YouTube・SNSの合計" },
     { label: "総スキ数", value: totalLikes, note: "人気記事・ハッシュタグ観測分" },
     { label: "追跡テーマ数", value: trackedThemes, note: "カテゴリのユニーク数" },
-    { label: "YouTube動画数", value: youtubeCount, note: "動画観測として取り込んだ件数" }
+    { label: "動画/SNS件数", value: youtubeCount + socialCount, note: "YouTubeとSNS投稿から拾った件数" }
   ];
 
   statsGrid.innerHTML = stats.map((stat) => `
@@ -585,6 +582,9 @@ function renderStats() {
 
 function renderObservationList() {
   const items = getFilteredItems();
+  if (items.length > 0 && !items.some((item) => item.id === state.selectedId)) {
+    state.selectedId = items[0].id;
+  }
 
   observationList.innerHTML = items.length
     ? items.map((item) => renderObservationCard(item)).join("")
@@ -664,7 +664,7 @@ function renderOfficialList() {
 
 function renderWatchlist() {
   const items = state.items
-    .filter((item) => item.sourceType !== "official")
+    .filter((item) => item.sourceType !== "official" && !isOwnNoteItem(item))
     .sort((a, b) => getSortMetric(b) - getSortMetric(a))
     .slice(0, 4);
 
@@ -678,7 +678,9 @@ function renderMiniItem(item) {
     ? `${item.publishedAt || "日付未設定"} / ${item.sourceLabel || "note公式"}`
     : item.sourceType === "youtube"
       ? `${formatCompactNumber(item.views)}再生 / ${item.author || "YouTube"}`
-      : `${item.likes} スキ / ${item.category || "カテゴリ未設定"}`;
+      : isSocialSourceType(item.sourceType)
+        ? `${formatCompactNumber(Math.max(item.views, item.likes))}反応 / ${item.author || SOURCE_LABELS[item.sourceType]}`
+        : `${item.likes} スキ / ${item.category || "カテゴリ未設定"}`;
 
   return `
     <article class="mini-item">
@@ -693,6 +695,10 @@ function renderMiniItem(item) {
 function getFilteredItems() {
   return state.items
     .filter((item) => {
+      if (isOwnNoteItem(item)) {
+        return false;
+      }
+
       const haystack = [
         item.title,
         item.author,
@@ -735,7 +741,18 @@ function compareByDate(a, b) {
 }
 
 function getSortMetric(item) {
-  return item.sourceType === "youtube" ? item.views : item.likes;
+  return item.sourceType === "youtube" || isSocialSourceType(item.sourceType)
+    ? Math.max(item.views, item.likes)
+    : item.likes;
+}
+
+function isOwnNoteItem(item) {
+  const url = String(item?.url || "");
+  return OWN_NOTE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
+
+function isSocialSourceType(sourceType) {
+  return sourceType === "x" || sourceType === "instagram" || sourceType === "threads";
 }
 
 function getSelectedItem() {
@@ -781,7 +798,8 @@ function syncProfileFromForm() {
     strengths: formData.get("strengths"),
     youtubeApiKey: formData.get("youtubeApiKey"),
     youtubeQueries: formData.get("youtubeQueries"),
-    youtubeMaxResults: formData.get("youtubeMaxResults")
+    youtubeMaxResults: formData.get("youtubeMaxResults"),
+    socialResearchInput: formData.get("socialResearchInput")
   });
 }
 
@@ -1003,6 +1021,204 @@ async function fetchYoutubeObservations() {
   markRefresh("feed");
   renderAll();
   setAppStatus(`${observations.length} 件のYouTube動画を取り込みました。`);
+}
+
+function importSocialObservations() {
+  syncProfileFromForm();
+  saveProfile();
+
+  const blocks = parseSocialResearchBlocks(state.profile.socialResearchInput);
+  if (!blocks.length) {
+    setAppStatus("SNS参考メモにURLつきの投稿情報を入れると取り込めます。");
+    return;
+  }
+
+  const observations = blocks
+    .map((block) => buildSocialObservation(block))
+    .filter(Boolean);
+
+  if (!observations.length) {
+    setAppStatus("X・Instagram・Threads のURLが見つかりませんでした。");
+    return;
+  }
+
+  mergeFetchedItems(observations);
+  saveItems();
+  markRefresh("insights");
+  markRefresh("feed");
+  renderAll();
+  setAppStatus(`${observations.length} 件のSNS投稿を取り込みました。`);
+}
+
+function parseSocialResearchBlocks(rawValue) {
+  return String(rawValue || "")
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean);
+}
+
+function buildSocialObservation(block) {
+  const lines = block.split("\n").map((line) => line.trim()).filter(Boolean);
+  const url = lines.find((line) => /^https?:\/\//i.test(line)) || "";
+  const sourceType = detectSocialSourceType(url);
+  if (!sourceType) {
+    return null;
+  }
+
+  const metadata = extractSocialMetadata(lines, url);
+  const platformLabel = SOURCE_LABELS[sourceType];
+  const bodyText = metadata.body || metadata.title || "";
+  const tags = metadata.tags.length ? metadata.tags : inferSocialTags(sourceType, metadata.title, bodyText);
+  const category = metadata.category || `${platformLabel} note運用`;
+
+  return normalizeItem({
+    id: crypto.randomUUID(),
+    title: metadata.title || excerpt(bodyText, 60) || `${platformLabel}の参考投稿`,
+    sourceType,
+    status: "watch",
+    observedAt: todayLocalDate(),
+    publishedAt: metadata.publishedAt,
+    likes: metadata.likes,
+    comments: metadata.comments,
+    views: metadata.views,
+    author: metadata.author,
+    category,
+    tags,
+    url,
+    summary: buildSocialSummary(sourceType, metadata, tags),
+    takeaway: buildSocialTakeaway(sourceType, metadata, tags, state.profile),
+    sourceLabel: metadata.sourceLabel || `SNSメモ: ${platformLabel}`
+  });
+}
+
+function detectSocialSourceType(url) {
+  const lower = String(url || "").toLowerCase();
+  if (lower.includes("x.com/") || lower.includes("twitter.com/")) {
+    return "x";
+  }
+  if (lower.includes("instagram.com/")) {
+    return "instagram";
+  }
+  if (lower.includes("threads.net/")) {
+    return "threads";
+  }
+  return "";
+}
+
+function extractSocialMetadata(lines, url) {
+  const metadata = {
+    title: "",
+    body: "",
+    author: "",
+    category: "",
+    publishedAt: "",
+    likes: 0,
+    comments: 0,
+    views: 0,
+    tags: [],
+    sourceLabel: ""
+  };
+  const bodyLines = [];
+
+  lines.forEach((line) => {
+    if (!line || line === url) {
+      return;
+    }
+
+    const match = line.match(/^([a-zA-Z一-龠ぁ-んァ-ヶー# ]+)\s*[:：]\s*(.+)$/);
+    if (!match) {
+      bodyLines.push(line);
+      return;
+    }
+
+    const key = match[1].trim().toLowerCase();
+    const value = match[2].trim();
+
+    if (["title", "タイトル"].includes(key)) {
+      metadata.title = value;
+      return;
+    }
+    if (["author", "著者", "発信者", "account"].includes(key)) {
+      metadata.author = value;
+      return;
+    }
+    if (["category", "カテゴリ"].includes(key)) {
+      metadata.category = value;
+      return;
+    }
+    if (["date", "published", "公開日", "投稿日"].includes(key)) {
+      metadata.publishedAt = normalizeDate(value);
+      return;
+    }
+    if (["likes", "like", "いいね"].includes(key)) {
+      metadata.likes = normalizeNumber(value.replace(/[^\d]/g, ""));
+      return;
+    }
+    if (["comments", "comment", "返信", "コメント"].includes(key)) {
+      metadata.comments = normalizeNumber(value.replace(/[^\d]/g, ""));
+      return;
+    }
+    if (["views", "view", "閲覧", "再生"].includes(key)) {
+      metadata.views = normalizeNumber(value.replace(/[^\d]/g, ""));
+      return;
+    }
+    if (["tags", "tag", "ハッシュタグ"].includes(key)) {
+      metadata.tags = normalizeTags(value.replace(/#/g, ""));
+      return;
+    }
+    if (["source", "参照元"].includes(key)) {
+      metadata.sourceLabel = value;
+      return;
+    }
+
+    bodyLines.push(line);
+  });
+
+  metadata.body = bodyLines.join(" ");
+  return metadata;
+}
+
+function inferSocialTags(sourceType, title, body) {
+  const text = `${title} ${body}`.toLowerCase();
+  const candidates = [
+    "note収益化",
+    "note運用",
+    "集客",
+    "導線設計",
+    "有料note",
+    "コンテンツ販売",
+    "SNS運用",
+    "タイトル設計",
+    "発信導線",
+    sourceType === "x" ? "X運用" : sourceType === "instagram" ? "Instagram運用" : "Threads運用"
+  ];
+
+  return candidates.filter((candidate) => text.includes(candidate.toLowerCase())).slice(0, 5);
+}
+
+function buildSocialSummary(sourceType, metadata, tags) {
+  const platformLabel = SOURCE_LABELS[sourceType];
+  const reachLine = metadata.views
+    ? `${formatCompactNumber(metadata.views)} の反応規模`
+    : metadata.likes
+      ? `${formatCompactNumber(metadata.likes)} いいね規模`
+      : "反応数は未入力";
+  const tagLine = tags.length ? `主な切り口は ${tags.slice(0, 3).join(" / ")}` : "切り口は本文から要確認";
+  const bodyLine = metadata.body
+    ? excerpt(metadata.body, 90)
+    : "本文はまだ入っていないが、note運用や収益化の参考として保存した投稿。";
+
+  return `${platformLabel}で見つけた参考投稿。${reachLine} で、${tagLine}。 ${bodyLine}`;
+}
+
+function buildSocialTakeaway(sourceType, metadata, tags, profile) {
+  const platformLabel = SOURCE_LABELS[sourceType];
+  const reader = profile.targetReader || "読み手";
+  const monetization = profile.monetizeTarget || "有料note";
+  const firstTag = tags[0] || `${platformLabel}運用`;
+  const secondTag = tags[1] || "収益化";
+
+  return `${platformLabel}では ${firstTag} と ${secondTag} の見せ方が反応を取りやすい。${reader} に合わせて悩み訴求をnote向けに翻訳し、無料記事で問題提起、${monetization} で具体策やテンプレートを渡す流れにすると使いやすい。`;
 }
 
 async function fetchYoutubeSearchResults(apiKey, query, maxResults) {
@@ -1289,8 +1505,9 @@ function renderPersonalGuidance() {
 }
 
 function buildPersonalGuidance(profile, selectedItem, items) {
-  const topCategories = countOccurrences(items.map((item) => item.category), 3).map(([label]) => label);
-  const topTags = countOccurrences(items.flatMap((item) => item.tags), 4).map(([label]) => label);
+  const referenceItems = items.filter((item) => !isOwnNoteItem(item));
+  const topCategories = countOccurrences(referenceItems.map((item) => item.category), 3).map(([label]) => label);
+  const topTags = countOccurrences(referenceItems.flatMap((item) => item.tags), 4).map(([label]) => label);
   const selectedBase = selectedItem?.category || selectedItem?.tags[0] || topCategories[0] || profile.noteTheme;
   const matchedAngle = topTags[0] || topCategories[1] || "実体験";
   const direction = `${profile.noteTheme} を軸にしつつ、${selectedBase} と ${matchedAngle} を交差させて「自分の読者向けに翻訳する記事」を増やす方針です。`;
@@ -1956,6 +2173,9 @@ function getObservationMetric(item) {
   if (item.sourceType === "youtube") {
     return `${formatCompactNumber(item.views)} 再生`;
   }
+  if (isSocialSourceType(item.sourceType)) {
+    return `${formatCompactNumber(Math.max(item.views, item.likes))} 反応`;
+  }
   return `${item.likes} スキ`;
 }
 
@@ -1991,4 +2211,277 @@ function setAppStatus(message) {
 
 function isFileProtocol() {
   return window.location.protocol === "file:";
+}
+
+function extractReferenceAngle(item) {
+  return item.tags[1] || item.tags[0] || item.category || "悩みの切り口";
+}
+
+function extractReferenceBase(item) {
+  return item.category || item.tags[0] || "自分のテーマ";
+}
+
+function buildPersonalGuidance(profile, selectedItem, items) {
+  const referenceItems = items.filter((item) => !isOwnNoteItem(item));
+  const topCategories = countOccurrences(referenceItems.map((item) => item.category), 3).map(([label]) => label);
+  const topTags = countOccurrences(referenceItems.flatMap((item) => item.tags), 4).map(([label]) => label);
+  const selectedBase = selectedItem?.category || selectedItem?.tags[0] || topCategories[0] || profile.noteTheme;
+  const matchedAngle = topTags[0] || topCategories[1] || "実体験";
+
+  return {
+    direction: `${profile.noteTheme} を主役にして、参考発信から学ぶのは「何を書くか」ではなく「どう刺すか」に絞る方針です。いまは ${selectedBase} と ${matchedAngle} を、自分の読者向けに翻訳する使い方が合っています。`,
+    contentFocus: `${profile.targetReader} が反応しそうな悩みの言い方、タイトルの入口、導入の順番を参考情報から拾い、それを自分のテーマで言い直すのが中心です。`,
+    monetizeFocus: `${profile.monetizeTarget} につなげるときも、note運用ノウハウを売るのではなく、自分の専門テーマで読者が次に欲しい具体策を渡す形に寄せるのが自然です。`,
+    nextMove: `次は ${selectedBase} を題材に、参考発信で強かった悩み訴求を3パターンだけ自分向けに翻訳して試し、反応が良い入口を残すのがおすすめです。`,
+    themeIdeas: buildThemeIdeas(profile, selectedItem, topCategories, topTags),
+    keywords: buildKeywordIdeas(profile, selectedItem, topCategories, topTags),
+    growthPlan: buildGrowthPlan(profile, selectedItem, selectedBase, topTags)
+  };
+}
+
+function buildObservationSummary(item) {
+  const sourceLabel = SOURCE_LABELS[item.sourceType];
+  const scale = item.sourceType === "official"
+    ? "公式の動きとして流れを読む材料"
+    : item.sourceType === "youtube"
+      ? item.views > 0
+        ? `${formatCompactNumber(item.views)}再生規模で入口の強さを見られる材料`
+        : "動画タイトルや導入の作り方を見る材料"
+      : isSocialSourceType(item.sourceType)
+        ? Math.max(item.views, item.likes) > 0
+          ? `${formatCompactNumber(Math.max(item.views, item.likes))}規模の反応があり短い言葉の刺さり方を見られる材料`
+          : `${sourceLabel} での言い回しを見る材料`
+        : item.likes > 0
+          ? `${item.likes}スキの反応がありテーマの手応えを見られる材料`
+          : "切り口を読む参考材料";
+  const tagLine = item.tags.length ? `見えているキーワードは ${item.tags.slice(0, 3).join(" / ")}。` : "";
+  const categoryLine = item.category ? `主な文脈は ${item.category}。` : "";
+  return `${item.title} は ${sourceLabel} の参考材料です。${scale} で、学ぶべきなのはテーマそのものではなく、どんな悩みの切り方や入口が反応されているかです。${categoryLine} ${tagLine}`.trim();
+}
+
+function buildObservationTakeaway(item, profile) {
+  const reader = profile.targetReader || "自分の読者";
+  const monetization = profile.monetizeTarget || "有料note";
+  const base = extractReferenceBase(item);
+  const angle = extractReferenceAngle(item);
+  return [
+    `${reader} に向けては、この参考情報の内容を真似するのではなく、${base} をどう言えば気になってもらえるかに変換して使います。`,
+    `${angle} の見せ方や悩みの切り出し方は、そのまま自分のテーマのタイトルと導入に移し替えやすいです。`,
+    `${monetization} につなげるなら、note運用ノウハウではなく、自分の専門テーマで読者が次に欲しい具体策を渡す構成にします。`
+  ].join(" ");
+}
+
+function suggestTitles(item) {
+  const base = extractReferenceBase(item);
+  const angle = extractReferenceAngle(item);
+  return [
+    `${base}で悩む人が最初につまずくポイントを、${angle}の切り口でほどく`,
+    `${base}をがんばっているのに進まない人へ。見直したい入口の作り方`,
+    `${item.title} から学んだ「刺さる言い方」を、自分のテーマに置き換えてみた`
+  ];
+}
+
+function suggestHooks(item) {
+  const base = extractReferenceBase(item);
+  const angle = extractReferenceAngle(item);
+  return [
+    `${base}で止まりやすい人ほど、最初に必要なのは情報量よりも「自分ごと化できる入口」です。`,
+    `今回の参考情報で強かったのは、${angle} を先に言語化してから次の一歩を見せる流れでした。`,
+    `同じ型を使っても、話すテーマは自分の専門に置き換えれば十分に活かせます。`
+  ];
+}
+
+function buildArticlePlan(item, strategy) {
+  const titles = suggestTitles(item);
+  const hooks = suggestHooks(item);
+  const base = extractReferenceBase(item);
+
+  return [
+    `参考: ${item.title}`,
+    `この記事でやること: 参考情報の中身を真似せず、刺さる入口だけを ${base} に翻訳する`,
+    "",
+    "タイトル案",
+    ...titles.map((title, index) => `${index + 1}. ${title}`),
+    "",
+    "導入フック",
+    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
+    "",
+    "構成メモ",
+    "1. 読者が抱えている悩みを短く言語化する",
+    `2. その悩みが起きやすい背景を ${item.summary || "参考情報から見えた共通点"} として整理する`,
+    `3. 参考情報から学べる見せ方を、自分のテーマ向けの気づきとして書く: ${item.takeaway || "自分向けに翻訳した学びを入れる"}`,
+    "4. 今日から試せる小さな行動を3つに絞る",
+    "5. 続きで深く知りたい人向けの導線を最後に置く",
+    "",
+    "CTA",
+    `続きでは ${suggestPaidOffer(item)} を渡す形にすると自然です。`
+  ].join("\n");
+}
+
+function buildMonetizationPlan(item) {
+  const freeLead = suggestFreeLead(item);
+  const paidOffer = suggestPaidOffer(item);
+  const upsell = suggestUpsell(item);
+  const base = extractReferenceBase(item);
+
+  return [
+    `参考: ${item.title}`,
+    "",
+    "無料記事で渡すもの",
+    `${freeLead}`,
+    "",
+    "有料で渡すもの",
+    `${paidOffer}`,
+    "",
+    "大事な前提",
+    `${base} に関する具体策を売るのであって、note運用ノウハウ自体を売る必要はありません。参考情報から借りるのは悩み訴求と導線の型だけです。`,
+    "",
+    "販売導線",
+    "1. 無料記事で悩みを言語化する",
+    "2. 無料記事内で一部の解決策まで見せる",
+    `3. 続きで ${paidOffer} を案内する`,
+    `4. さらに必要な人には ${upsell} へつなげる`
+  ].join("\n");
+}
+
+function detectProfileTrack(profile) {
+  const theme = `${profile?.noteTheme || ""} ${profile?.targetReader || ""} ${profile?.strengths || ""}`;
+  if (theme.includes("教育") || theme.includes("保護者") || theme.includes("中学受験")) {
+    return "moco";
+  }
+  if (theme.includes("起業") || theme.includes("失敗") || theme.includes("判断") || theme.includes("ビジコン")) {
+    return "failure";
+  }
+  return "general";
+}
+
+function suggestTitles(item) {
+  const profile = state.profile;
+  const track = detectProfileTrack(profile);
+  const base = extractReferenceBase(item);
+  const angle = extractReferenceAngle(item);
+
+  if (track === "moco") {
+    return [
+      `保護者が${base}で迷いやすい理由を、${angle}の切り口でやさしく整理する`,
+      `中学受験や家庭学習で不安なときに、親が先に整えたい${base}の見方`,
+      `${item.title} で強かった伝え方を、教育・AI・心理学のテーマに置き換えてみた`
+    ];
+  }
+
+  if (track === "failure") {
+    return [
+      `${base}で判断を誤りやすい人へ。${angle}から見直すための考え方`,
+      `起業前に不安が膨らむとき、${base}をどう切り分けると動けるのか`,
+      `${item.title} から学んだ「刺さる入口」を、失敗と判断のテーマに翻訳する`
+    ];
+  }
+
+  return [
+    `${base}で悩む人が最初につまずくポイントを、${angle}の切り口でほどく`,
+    `${base}をがんばっているのに進まない人へ。見直したい入口の作り方`,
+    `${item.title} から学んだ「刺さる言い方」を、自分のテーマに置き換えてみた`
+  ];
+}
+
+function suggestHooks(item) {
+  const profile = state.profile;
+  const track = detectProfileTrack(profile);
+  const base = extractReferenceBase(item);
+  const angle = extractReferenceAngle(item);
+
+  if (track === "moco") {
+    return [
+      `${base}で不安になりやすい保護者ほど、情報量より先に「何を見れば安心できるか」を知りたいはずです。`,
+      `今回の参考情報で強かったのは、${angle}を先に言葉にしてから次の一歩を見せる流れでした。`,
+      `この型を教育・AI・心理学の文脈に移すと、親が読み進めやすい導入を作れます。`
+    ];
+  }
+
+  if (track === "failure") {
+    return [
+      `${base}で止まる人は、能力不足よりも判断の整理ができていないことが多いです。`,
+      `参考情報で強かったのは、${angle}を先に見せて「それなら自分にもある」と思わせる入口でした。`,
+      `この流れを失敗談や起業前の迷いに移すと、かなり自分ごと化されやすくなります。`
+    ];
+  }
+
+  return [
+    `${base}で止まりやすい人ほど、最初に必要なのは情報量よりも「自分ごと化できる入口」です。`,
+    `今回の参考情報で強かったのは、${angle}を先に言語化してから次の一歩を見せる流れでした。`,
+    `同じ型を使っても、話すテーマは自分の専門に置き換えれば十分に活かせます。`
+  ];
+}
+
+function buildArticlePlan(item, strategy) {
+  const profile = state.profile;
+  const track = detectProfileTrack(profile);
+  const titles = suggestTitles(item);
+  const hooks = suggestHooks(item);
+  const base = extractReferenceBase(item);
+
+  const trackMemo = track === "moco"
+    ? "親の不安を軽くし、教育・AI・心理学をやさしく翻訳する流れで組む"
+    : track === "failure"
+      ? "失敗や迷いを先に言語化し、判断の整理へつなぐ流れで組む"
+      : "参考発信の入口を、自分のテーマに翻訳する流れで組む";
+
+  return [
+    `参考: ${item.title}`,
+    `この記事でやること: ${trackMemo}`,
+    "",
+    "タイトル案",
+    ...titles.map((title, index) => `${index + 1}. ${title}`),
+    "",
+    "導入フック",
+    ...hooks.map((hook, index) => `${index + 1}. ${hook}`),
+    "",
+    "構成メモ",
+    "1. 読者が抱えている悩みを短く言語化する",
+    `2. その悩みが起きやすい背景を ${item.summary || "参考情報から見えた共通点"} として整理する`,
+    `3. 参考情報から学べる見せ方を、自分向けの気づきとして書く: ${item.takeaway || "自分向けに翻訳した学びを入れる"}`,
+    track === "moco"
+      ? "4. 保護者が今日からできる小さな行動を3つに絞る"
+      : track === "failure"
+        ? "4. 判断ミスを減らすための見直しポイントを3つに絞る"
+        : "4. 今日から試せる小さな行動を3つに絞る",
+    "5. 続きで深く知りたい人向けの導線を最後に置く",
+    "",
+    "CTA",
+    `続きでは ${suggestPaidOffer(item)} を渡す形にすると自然です。`
+  ].join("\n");
+}
+
+function buildMonetizationPlan(item) {
+  const profile = state.profile;
+  const track = detectProfileTrack(profile);
+  const freeLead = suggestFreeLead(item);
+  const paidOffer = suggestPaidOffer(item);
+  const upsell = suggestUpsell(item);
+  const base = extractReferenceBase(item);
+
+  const premise = track === "moco"
+    ? `${base} に関する不安を軽くする具体策を売る形にします。教育・AI・心理学をわかりやすく翻訳して渡すのが軸です。`
+    : track === "failure"
+      ? `${base} に関する判断整理や失敗回避の具体策を売る形にします。起業前の迷いを言語化して次の行動へつなげるのが軸です。`
+      : `${base} に関する具体策を売るのであって、note運用ノウハウ自体を売る必要はありません。参考情報から借りるのは悩み訴求と導線の型だけです。`;
+
+  return [
+    `参考: ${item.title}`,
+    "",
+    "無料記事で渡すもの",
+    `${freeLead}`,
+    "",
+    "有料で渡すもの",
+    `${paidOffer}`,
+    "",
+    "大事な前提",
+    premise,
+    "",
+    "販売導線",
+    "1. 無料記事で悩みを言語化する",
+    "2. 無料記事内で一部の解決策まで見せる",
+    `3. 続きで ${paidOffer} を案内する`,
+    `4. さらに必要な人には ${upsell} へつなげる`
+  ].join("\n");
 }
