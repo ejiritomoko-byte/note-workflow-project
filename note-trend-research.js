@@ -553,7 +553,7 @@ function renderRefreshMeta() {
 }
 
 function renderStats() {
-  const items = state.items.filter((item) => !isOwnNoteItem(item));
+  const items = state.items.filter((item) => isReferenceCandidate(item));
   const noteItems = items.filter((item) => item.sourceType !== "youtube");
   const totalLikes = noteItems.reduce((sum, item) => sum + item.likes, 0);
   const trackedThemes = uniqueCount(items.map((item) => item.category).filter(Boolean));
@@ -653,7 +653,7 @@ function renderForm() {
 
 function renderOfficialList() {
   const items = state.items
-    .filter((item) => item.sourceType === "official")
+    .filter((item) => item.sourceType === "official" && isReferenceCandidate(item))
     .sort((a, b) => compareByDate(b.publishedAt, a.publishedAt))
     .slice(0, 4);
 
@@ -664,7 +664,7 @@ function renderOfficialList() {
 
 function renderWatchlist() {
   const items = state.items
-    .filter((item) => item.sourceType !== "official" && !isOwnNoteItem(item))
+    .filter((item) => item.sourceType !== "official" && isReferenceCandidate(item))
     .sort((a, b) => getSortMetric(b) - getSortMetric(a))
     .slice(0, 4);
 
@@ -695,7 +695,7 @@ function renderMiniItem(item) {
 function getFilteredItems() {
   return state.items
     .filter((item) => {
-      if (isOwnNoteItem(item)) {
+      if (!isReferenceCandidate(item)) {
         return false;
       }
 
@@ -749,6 +749,42 @@ function getSortMetric(item) {
 function isOwnNoteItem(item) {
   const url = String(item?.url || "");
   return OWN_NOTE_URL_PREFIXES.some((prefix) => url.startsWith(prefix));
+}
+
+function isReferenceCandidate(item) {
+  if (isOwnNoteItem(item)) {
+    return false;
+  }
+
+  if (item?.sourceType === "official" && !isUsefulOfficialItem(item)) {
+    return false;
+  }
+
+  return true;
+}
+
+function isUsefulOfficialItem(item) {
+  const haystack = [
+    item?.title,
+    item?.category,
+    item?.sourceLabel,
+    ...(item?.tags || [])
+  ].join(" ").toLowerCase();
+
+  const excludedKeywords = [
+    "創作大賞",
+    "コンクール",
+    "コンテスト",
+    "募集",
+    "応募",
+    "キャンペーン",
+    "お題",
+    "投稿企画",
+    "ハッシュタグ",
+    "感想文"
+  ].map((keyword) => keyword.toLowerCase());
+
+  return !excludedKeywords.some((keyword) => haystack.includes(keyword));
 }
 
 function isSocialSourceType(sourceType) {
@@ -1437,7 +1473,9 @@ function mergeFetchedItems(fetchedItems) {
     state.items.map((item) => [item.url || `${item.author}::${item.title}`, item])
   );
 
-  fetchedItems.forEach((item) => {
+  fetchedItems
+    .filter((item) => isReferenceCandidate(item))
+    .forEach((item) => {
     const key = item.url || `${item.author}::${item.title}`;
     const existing = existingMap.get(key);
 
@@ -1459,7 +1497,7 @@ function mergeFetchedItems(fetchedItems) {
 
     state.items.unshift(item);
     existingMap.set(key, item);
-  });
+    });
 }
 
 function renderStrategy() {
@@ -1505,7 +1543,7 @@ function renderPersonalGuidance() {
 }
 
 function buildPersonalGuidance(profile, selectedItem, items) {
-  const referenceItems = items.filter((item) => !isOwnNoteItem(item));
+  const referenceItems = items.filter((item) => isReferenceCandidate(item));
   const topCategories = countOccurrences(referenceItems.map((item) => item.category), 3).map(([label]) => label);
   const topTags = countOccurrences(referenceItems.flatMap((item) => item.tags), 4).map(([label]) => label);
   const selectedBase = selectedItem?.category || selectedItem?.tags[0] || topCategories[0] || profile.noteTheme;
@@ -2222,7 +2260,7 @@ function extractReferenceBase(item) {
 }
 
 function buildPersonalGuidance(profile, selectedItem, items) {
-  const referenceItems = items.filter((item) => !isOwnNoteItem(item));
+  const referenceItems = items.filter((item) => isReferenceCandidate(item));
   const topCategories = countOccurrences(referenceItems.map((item) => item.category), 3).map(([label]) => label);
   const topTags = countOccurrences(referenceItems.flatMap((item) => item.tags), 4).map(([label]) => label);
   const selectedBase = selectedItem?.category || selectedItem?.tags[0] || topCategories[0] || profile.noteTheme;
