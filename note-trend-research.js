@@ -421,7 +421,7 @@ function bindEvents() {
   bindButtonAction("saveProfileBtn", () => {
     syncProfileFromForm();
     saveProfile();
-    renderPersonalGuidance();
+    renderAll();
     return "プロフィール設定を保存しました。";
   });
 
@@ -491,6 +491,7 @@ function bindEvents() {
   profileForm.addEventListener("input", () => {
     syncProfileFromForm();
     renderPersonalGuidance();
+    renderStrategy();
   });
 
   form.addEventListener("submit", (event) => {
@@ -927,7 +928,7 @@ function applyProfilePreset(presetKey) {
   state.profile = normalizeProfile(PROFILE_PRESETS[presetKey] || makeDefaultProfile());
   saveProfile();
   renderProfileForm();
-  renderPersonalGuidance();
+  renderAll();
 }
 
 function refreshInsights() {
@@ -2254,6 +2255,111 @@ function setAppStatus(message) {
 
 function isFileProtocol() {
   return window.location.protocol === "file:";
+}
+
+function focusImportedObservations(observations, preferredSourceType = "all") {
+  if (!observations.length) {
+    return;
+  }
+
+  state.filters.search = "";
+  state.filters.status = "all";
+  state.filters.sort = "newest";
+
+  const uniqueSourceTypes = [...new Set(observations.map((item) => item.sourceType).filter(Boolean))];
+  if (uniqueSourceTypes.length === 1) {
+    state.filters.sourceType = uniqueSourceTypes[0];
+  } else if (preferredSourceType && preferredSourceType !== "all") {
+    state.filters.sourceType = preferredSourceType;
+  } else {
+    state.filters.sourceType = "all";
+  }
+
+  state.selectedId = observations[0].id;
+}
+
+async function fetchYoutubeObservations() {
+  if (isFileProtocol()) {
+    setAppStatus("file:// では YouTube API の自動取得は動きません。GitHub Pages のURLかローカルサーバーで開いて、APIキーを入れて試してください。");
+    return;
+  }
+
+  syncProfileFromForm();
+  saveProfile();
+
+  const apiKey = state.profile.youtubeApiKey.trim();
+  if (!apiKey) {
+    setAppStatus("YouTube APIキーを入れると動画を取得できます。");
+    return;
+  }
+
+  const queries = state.profile.youtubeQueries
+    .split("\n")
+    .map((query) => query.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (!queries.length) {
+    setAppStatus("YouTube検索語を1つ以上入れてください。");
+    return;
+  }
+
+  const maxResults = Math.max(1, Math.min(10, Number(state.profile.youtubeMaxResults) || 6));
+  const searchResults = await Promise.all(
+    queries.map((query) => fetchYoutubeSearchResults(apiKey, query, maxResults))
+  );
+
+  const uniqueByVideo = new Map();
+  searchResults.flat().forEach((item) => {
+    uniqueByVideo.set(item.videoId, item);
+  });
+
+  const videoIds = [...uniqueByVideo.keys()];
+  if (!videoIds.length) {
+    setAppStatus("YouTube動画が見つかりませんでした。検索語を見直してください。");
+    return;
+  }
+
+  const details = await fetchYoutubeVideoDetails(apiKey, videoIds);
+  const observations = [...uniqueByVideo.values()]
+    .map((item) => buildYoutubeObservation(item, details.get(item.videoId)))
+    .filter(Boolean);
+
+  mergeFetchedItems(observations);
+  focusImportedObservations(observations, "youtube");
+  saveItems();
+  markRefresh("insights");
+  markRefresh("feed");
+  renderAll();
+  setAppStatus(`${observations.length} 件のYouTube動画を取り込みました。`);
+}
+
+function importSocialObservations() {
+  syncProfileFromForm();
+  saveProfile();
+
+  const blocks = parseSocialResearchBlocks(state.profile.socialResearchInput);
+  if (!blocks.length) {
+    setAppStatus("SNS参考メモにURLつきの投稿情報を入れると取り込めます。");
+    return;
+  }
+
+  const observations = blocks
+    .map((block) => buildSocialObservation(block))
+    .filter(Boolean);
+
+  if (!observations.length) {
+    setAppStatus("X・Instagram・Threads のURLが見つかりませんでした。");
+    return;
+  }
+
+  mergeFetchedItems(observations);
+  focusImportedObservations(observations, observations[0]?.sourceType || "all");
+  saveItems();
+  markRefresh("insights");
+  markRefresh("feed");
+  renderAll();
+  setAppStatus(`${observations.length} 件のSNS投稿を取り込みました。`);
 }
 
 function extractReferenceAngle(item) {
