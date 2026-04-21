@@ -5,6 +5,13 @@ const TYPE_LABELS = {
   rewrite: "リライト"
 };
 
+const BUCKET_LABELS = {
+  "new-creation": "新規記事作成",
+  "rewrite-candidate": "リライト候補",
+  "publish-priority": "公開優先",
+  "draft-stock": "下書き保管"
+};
+
 const GOAL_LABELS = {
   rewrite: "リライトする",
   draft: "下書きをする",
@@ -19,6 +26,12 @@ const PROMPT_TYPE_LABELS = {
 
 const PRIORITY_ORDER = { 高: 0, 中: 1, 低: 2 };
 const TYPE_ORDER = { rewrite: 0, new: 1 };
+const BUCKET_ORDER = {
+  "publish-priority": 0,
+  "rewrite-candidate": 1,
+  "new-creation": 2,
+  "draft-stock": 3
+};
 
 const LEGACY_TYPE_MAP = {
   new: "new",
@@ -69,11 +82,19 @@ const LEGACY_PROMPT_TYPE_MAP = {
   rewrite: "rewrite"
 };
 
+const LEGACY_BUCKET_MAP = {
+  "new-creation": "new-creation",
+  "rewrite-candidate": "rewrite-candidate",
+  "publish-priority": "publish-priority",
+  "draft-stock": "draft-stock"
+};
+
 const seedItems = [
   {
     id: crypto.randomUUID(),
     title: "家庭学習に使える『自分専用の学習アプリ』をAIで作ってみた",
     account: "moco_edu_note",
+    bucket: "publish-priority",
     type: "rewrite",
     status: "リライト中",
     priority: "高",
@@ -92,6 +113,7 @@ const seedItems = [
     id: crypto.randomUUID(),
     title: "中学受験の国語に使えるAIはどれ？",
     account: "moco_edu_note",
+    bucket: "publish-priority",
     type: "rewrite",
     status: "リライト中",
     priority: "高",
@@ -110,6 +132,7 @@ const seedItems = [
     id: crypto.randomUUID(),
     title: "子どもの『考える力』を引き出す、たった3つの習慣",
     account: "moco_edu_note",
+    bucket: "rewrite-candidate",
     type: "rewrite",
     status: "整え中",
     priority: "中",
@@ -128,6 +151,7 @@ const seedItems = [
     id: crypto.randomUUID(),
     title: "ビジコンで書かされる『3年後のプラン』は、なぜ事業の判断を狂わせるのか",
     account: "learnfromfailure",
+    bucket: "rewrite-candidate",
     type: "rewrite",
     status: "リライト中",
     priority: "中",
@@ -146,6 +170,7 @@ const seedItems = [
     id: crypto.randomUUID(),
     title: "家庭学習でAIをどう使えば親がラクになるか",
     account: "moco_edu_note",
+    bucket: "new-creation",
     type: "new",
     status: "ネタ",
     priority: "高",
@@ -174,6 +199,7 @@ let state = {
   selectedId: null,
   filters: {
     search: "",
+    bucket: "all",
     type: "all",
     status: "all",
     priority: "all"
@@ -191,6 +217,7 @@ const copyPromptBtn = document.getElementById("copyPromptBtn");
 const copyImagePromptBtn = document.getElementById("copyImagePromptBtn");
 const captureUrlInput = document.getElementById("captureUrlInput");
 const captureMemoInput = document.getElementById("captureMemoInput");
+const captureBucketSelect = document.getElementById("captureBucketSelect");
 
 init();
 
@@ -226,6 +253,7 @@ function normalizeItem(item) {
     id: item.id || crypto.randomUUID(),
     title: String(item.title || "新しい項目"),
     account: item.account === "learnfromfailure" ? "learnfromfailure" : "moco_edu_note",
+    bucket: LEGACY_BUCKET_MAP[item.bucket] || (item.type === "rewrite" ? "rewrite-candidate" : "new-creation"),
     type: LEGACY_TYPE_MAP[item.type] || "new",
     status: LEGACY_STATUS_MAP[item.status] || "ネタ",
     priority: LEGACY_PRIORITY_MAP[item.priority] || "中",
@@ -249,6 +277,11 @@ function saveItems() {
 function bindEvents() {
   document.getElementById("searchInput").addEventListener("input", (event) => {
     state.filters.search = event.target.value.trim().toLowerCase();
+    renderBoard();
+  });
+
+  document.getElementById("bucketFilter").addEventListener("change", (event) => {
+    state.filters.bucket = event.target.value;
     renderBoard();
   });
 
@@ -287,6 +320,7 @@ function bindEvents() {
       ...selected,
       title: formData.get("title"),
       account: formData.get("account"),
+      bucket: formData.get("bucket"),
       type: formData.get("type"),
       status: formData.get("status"),
       priority: formData.get("priority"),
@@ -320,6 +354,22 @@ function bindEvents() {
     };
     state.items.unshift(duplicate);
     state.selectedId = duplicate.id;
+    saveItems();
+    renderAll();
+  });
+
+  document.getElementById("saveDraftBtn").addEventListener("click", () => {
+    const selected = getSelectedItem();
+    if (!selected) {
+      return;
+    }
+
+    state.items = state.items.map((item) =>
+      item.id === selected.id
+        ? { ...item, bucket: "draft-stock", status: "下書き中" }
+        : item
+    );
+
     saveItems();
     renderAll();
   });
@@ -377,9 +427,10 @@ function renderStats() {
   const activeItems = state.items.filter((item) => !item.archived);
   const stats = [
     { label: "運用中の記事", value: activeItems.length, note: "完了扱い以外" },
-    { label: "新規記事", value: activeItems.filter((item) => item.type === "new").length, note: "新しく書く候補" },
-    { label: "リライト", value: activeItems.filter((item) => item.type === "rewrite").length, note: "直したい記事" },
-    { label: "優先度 高", value: activeItems.filter((item) => item.priority === "高").length, note: "先に手をつける候補" }
+    { label: "新規記事作成", value: activeItems.filter((item) => item.bucket === "new-creation").length, note: "新しく作る記事" },
+    { label: "リライト候補", value: activeItems.filter((item) => item.bucket === "rewrite-candidate").length, note: "見直したい記事" },
+    { label: "公開優先", value: activeItems.filter((item) => item.bucket === "publish-priority").length, note: "先に公開したい記事" },
+    { label: "下書き保管", value: activeItems.filter((item) => item.bucket === "draft-stock").length, note: "途中まで書けている記事" }
   ];
 
   statsGrid.innerHTML = stats.map((stat) => `
@@ -419,6 +470,7 @@ function renderCard(item) {
       </div>
       <div class="meta-row">
         <span class="chip ${accountChipClass(item.account)}">${escapeHtml(item.account)}</span>
+        <span class="chip">${escapeHtml(BUCKET_LABELS[item.bucket])}</span>
         <span class="chip">${escapeHtml(TYPE_LABELS[item.type])}</span>
         <span class="chip">${escapeHtml(item.status)}</span>
         <span class="chip">${escapeHtml(item.targetAi)}</span>
@@ -476,16 +528,20 @@ function getFilteredItems() {
       ].join(" ").toLowerCase();
 
       const matchesSearch = !state.filters.search || haystack.includes(state.filters.search);
+      const matchesBucket = state.filters.bucket === "all" || item.bucket === state.filters.bucket;
       const matchesType = state.filters.type === "all" || item.type === state.filters.type;
       const matchesStatus = state.filters.status === "all" || item.status === state.filters.status;
       const matchesPriority = state.filters.priority === "all" || item.priority === state.filters.priority;
 
-      return matchesSearch && matchesType && matchesStatus && matchesPriority;
+      return matchesSearch && matchesBucket && matchesType && matchesStatus && matchesPriority;
     })
     .sort(compareItems);
 }
 
 function compareItems(a, b) {
+  if (BUCKET_ORDER[a.bucket] !== BUCKET_ORDER[b.bucket]) {
+    return BUCKET_ORDER[a.bucket] - BUCKET_ORDER[b.bucket];
+  }
   if (PRIORITY_ORDER[a.priority] !== PRIORITY_ORDER[b.priority]) {
     return PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
   }
@@ -500,6 +556,7 @@ function makeEmptyItem() {
     id: crypto.randomUUID(),
     title: "新しい項目",
     account: "moco_edu_note",
+    bucket: "new-creation",
     type: "new",
     status: "ネタ",
     priority: "中",
@@ -526,6 +583,7 @@ function captureUrlAsItem() {
   const item = makeEmptyItem();
   item.type = "rewrite";
   item.status = "ネタ";
+  item.bucket = captureBucketSelect.value || "rewrite-candidate";
   item.source = rawUrl;
   item.body = memo;
   item.title = guessTitleFromUrl(rawUrl);
@@ -557,6 +615,7 @@ function buildPrompt(item) {
     "",
     `タイトル: ${item.title}`,
     `アカウント: ${item.account}`,
+    `管理カテゴリ: ${BUCKET_LABELS[item.bucket]}`,
     `種別: ${TYPE_LABELS[item.type]}`,
     `進み具合: ${item.status}`,
     `プロンプトの型: ${PROMPT_TYPE_LABELS[item.promptType]}`,
@@ -709,6 +768,7 @@ function syncPromptFromForm() {
     id: getSelectedItem()?.id || crypto.randomUUID(),
     title,
     account: String(form.elements.namedItem("account")?.value || "moco_edu_note"),
+    bucket: String(form.elements.namedItem("bucket")?.value || "new-creation"),
     type: String(form.elements.namedItem("type")?.value || "new"),
     status: String(form.elements.namedItem("status")?.value || "ネタ"),
     priority: String(form.elements.namedItem("priority")?.value || "中"),

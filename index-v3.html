@@ -50,6 +50,16 @@
             <input id="searchInput" type="search" placeholder="タイトル・本文・キーワードで検索">
           </label>
           <label>
+            <span>管理カテゴリ</span>
+            <select id="bucketFilter">
+              <option value="all">すべて</option>
+              <option value="new-creation">新規記事作成</option>
+              <option value="rewrite-candidate">リライト候補</option>
+              <option value="publish-priority">公開優先</option>
+              <option value="draft-stock">下書き保管</option>
+            </select>
+          </label>
+          <label>
             <span>種別</span>
             <select id="typeFilter">
               <option value="all">すべて</option>
@@ -90,6 +100,14 @@
             <span>記事ページURL</span>
             <input id="captureUrlInput" type="text" placeholder="例: https://note.com/moco_edu_note/n/xxxxxxxxxxxx">
           </label>
+          <label>
+            <span>追加先カテゴリ</span>
+            <select id="captureBucketSelect">
+              <option value="rewrite-candidate">リライト候補</option>
+              <option value="publish-priority">公開優先</option>
+              <option value="draft-stock">下書き保管</option>
+            </select>
+          </label>
           <label class="full">
             <span>取り込みメモ</span>
             <textarea id="captureMemoInput" rows="3" placeholder="このURLの記事をリライト候補にしたい理由を短くメモ"></textarea>
@@ -119,6 +137,15 @@
             <select name="account">
               <option value="moco_edu_note">moco_edu_note</option>
               <option value="learnfromfailure">learnfromfailure</option>
+            </select>
+          </label>
+          <label>
+            <span>管理カテゴリ</span>
+            <select name="bucket">
+              <option value="new-creation">新規記事作成</option>
+              <option value="rewrite-candidate">リライト候補</option>
+              <option value="publish-priority">公開優先</option>
+              <option value="draft-stock">下書き保管</option>
             </select>
           </label>
           <label>
@@ -152,7 +179,7 @@
           </label>
           <label class="full">
             <span>本文・メモ</span>
-            <textarea name="body" rows="14" placeholder="下書き、コピペした文章、AIの出力などをそのまま残せます"></textarea>
+            <textarea name="body" rows="14" placeholder="未公開の本文、編集中の下書き、コピペした文章、AIの出力などをそのまま残せます"></textarea>
           </label>
           <label class="full">
             <span>狙うキーワード</span>
@@ -197,6 +224,7 @@
           <div class="form-actions full">
             <button class="primary-btn" type="submit">保存する</button>
             <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
+            <button class="ghost-btn" type="button" id="saveDraftBtn">下書き保管にする</button>
             <button class="ghost-btn" type="button" id="markDoneBtn">投稿完了</button>
           </div>
         </form>
