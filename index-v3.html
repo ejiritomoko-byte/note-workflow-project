@@ -11,249 +11,233 @@
     <header class="hero">
       <span class="eyebrow">note Memo</span>
       <h1>note記事メモ帳 v3</h1>
-      <p>新規記事とリライト候補を、日本語だけで整理できるシンプルな管理画面です。</p>
+      <p>記事を選んで、依頼内容を決めて、最後にAIへ渡す文章を確認する流れに整理しました。</p>
       <div class="hero-actions">
-        <button class="primary-btn" id="newItemBtn" type="button">新しい項目を作る</button>
+        <button class="primary-btn" id="newItemBtn" type="button">新しい記事を作る</button>
         <button class="ghost-btn" id="exportBtn" type="button">JSONを書き出し</button>
-        <button class="ghost-btn" id="resetBtn" type="button">初期データに戻す</button>
       </div>
     </header>
 
-    <main class="layout">
-      <section class="panel quick-guide">
-        <h2>使い方</h2>
-        <ol class="guide-list">
-          <li>新規記事なら「新しい項目を作る」から始めます。既存記事の見直しなら一覧から選びます。</li>
-          <li>「種別」を `新規記事` か `リライト` にします。</li>
-          <li>「本文・メモ」に下書きやコピペした文章をそのまま入れます。</li>
-          <li>「参照URL・元記事」に見返したいURLや元記事の場所を書きます。</li>
-          <li>「AIへの頼み方」で `リライトする / 下書きをする / チェックする` を選びます。</li>
-        </ol>
-      </section>
-
-      <section class="panel stats-panel">
-        <h2>全体の状況</h2>
-        <div class="stats-grid" id="statsGrid"></div>
-      </section>
-
-      <section class="panel list-panel">
-        <div class="section-head">
+    <main class="workspace-layout">
+      <aside class="sidebar panel">
+        <div class="section-head compact">
           <div>
             <h2>記事一覧</h2>
-            <p>優先度が高いものから上に出ます。リライト候補もここに入っています。</p>
+            <p>左で記事を選びます。</p>
           </div>
         </div>
 
-        <div class="toolbar">
+        <div class="sidebar-tools">
           <label>
             <span>検索</span>
-            <input id="searchInput" type="search" placeholder="タイトル・本文・キーワードで検索">
+            <input id="searchInput" type="search" placeholder="タイトル・本文・URLで検索">
           </label>
           <label>
-            <span>管理カテゴリ</span>
-            <select id="bucketFilter">
-              <option value="all">すべて</option>
-              <option value="new-creation">新規記事作成</option>
-              <option value="rewrite-candidate">リライト候補</option>
-              <option value="publish-priority">公開優先</option>
-              <option value="draft-stock">下書き保管</option>
-            </select>
-          </label>
-          <label>
-            <span>種別</span>
-            <select id="typeFilter">
-              <option value="all">すべて</option>
-              <option value="new">新規記事</option>
-              <option value="rewrite">リライト</option>
-            </select>
-          </label>
-          <label>
-            <span>進み具合</span>
+            <span>状態</span>
             <select id="statusFilter">
               <option value="all">すべて</option>
-              <option value="ネタ">ネタ</option>
-              <option value="下書き中">下書き中</option>
-              <option value="整え中">整え中</option>
-              <option value="リライト中">リライト中</option>
-              <option value="公開OK">公開OK</option>
-            </select>
-          </label>
-          <label>
-            <span>優先度</span>
-            <select id="priorityFilter">
-              <option value="all">すべて</option>
-              <option value="高">高</option>
-              <option value="中">中</option>
-              <option value="低">低</option>
+              <option value="新規">新規</option>
+              <option value="リライト">リライト</option>
+              <option value="下書き">下書き</option>
+              <option value="公開済み">公開済み</option>
             </select>
           </label>
         </div>
 
-        <div class="article-list" id="board"></div>
-      </section>
+        <div class="article-list sidebar-list" id="articleList"></div>
+      </aside>
 
-      <section class="panel quick-guide">
-        <h2>URLから追加</h2>
-        <p>親ページではなく、個別記事のURLを貼ってリライト候補に追加します。</p>
-        <div class="editor-grid">
-          <label class="full">
-            <span>記事ページURL</span>
-            <input id="captureUrlInput" type="text" placeholder="例: https://note.com/moco_edu_note/n/xxxxxxxxxxxx">
-          </label>
-          <label>
-            <span>追加先カテゴリ</span>
-            <select id="captureBucketSelect">
-              <option value="rewrite-candidate">リライト候補</option>
-              <option value="publish-priority">公開優先</option>
-              <option value="draft-stock">下書き保管</option>
-            </select>
-          </label>
-          <label class="full">
-            <span>取り込みメモ</span>
-            <textarea id="captureMemoInput" rows="3" placeholder="このURLの記事をリライト候補にしたい理由を短くメモ"></textarea>
-          </label>
-          <div class="form-actions full">
-            <button class="primary-btn" id="captureUrlBtn" type="button">URLを元記事に入れて新規追加</button>
+      <section class="main-column">
+        <section class="panel step-panel">
+          <div class="step-tabs">
+            <button class="step-tab active" id="stepOneTab" type="button">1. 記事内容</button>
+            <button class="step-tab" id="stepTwoTab" type="button">2. 依頼内容</button>
+            <button class="step-tab" id="stepThreeTab" type="button">3. プロンプト確認</button>
           </div>
-        </div>
-      </section>
 
-      <section class="panel detail-panel">
-        <div class="section-head">
-          <div>
-            <h2>項目詳細</h2>
-            <p>ここに本文や作業メモを入れます。右下のAI用文章にも自動で反映されます。</p>
-          </div>
-          <span class="current-id" id="currentIdLabel"></span>
-        </div>
+          <section class="step-view active" id="stepOneView">
+            <div class="section-head">
+              <div>
+                <h2>記事内容</h2>
+                <p>ここで記事本文やURLを管理します。新規記事もここで作れます。</p>
+              </div>
+              <span class="current-id" id="currentIdLabel"></span>
+            </div>
 
-        <form id="itemForm" class="editor-grid">
-          <label class="full">
-            <span>タイトル</span>
-            <input name="title" type="text" required>
-          </label>
-          <label>
-            <span>アカウント</span>
-            <select name="account">
-              <option value="moco_edu_note">moco_edu_note</option>
-              <option value="learnfromfailure">learnfromfailure</option>
-            </select>
-          </label>
-          <label>
-            <span>管理カテゴリ</span>
-            <select name="bucket">
-              <option value="new-creation">新規記事作成</option>
-              <option value="rewrite-candidate">リライト候補</option>
-              <option value="publish-priority">公開優先</option>
-              <option value="draft-stock">下書き保管</option>
-            </select>
-          </label>
-          <label>
-            <span>種別</span>
-            <select name="type">
-              <option value="new">新規記事</option>
-              <option value="rewrite">リライト</option>
-            </select>
-          </label>
-          <label>
-            <span>進み具合</span>
-            <select name="status">
-              <option value="ネタ">ネタ</option>
-              <option value="下書き中">下書き中</option>
-              <option value="整え中">整え中</option>
-              <option value="リライト中">リライト中</option>
-              <option value="公開OK">公開OK</option>
-            </select>
-          </label>
-          <label>
-            <span>優先度</span>
-            <select name="priority">
-              <option value="高">高</option>
-              <option value="中">中</option>
-              <option value="低">低</option>
-            </select>
-          </label>
-          <label>
-            <span>締切メモ</span>
-            <input name="due" type="text" placeholder="例: 今週中 / 4月末 / 公開前に確認">
-          </label>
-          <label class="full">
-            <span>本文・メモ</span>
-            <textarea name="body" rows="14" placeholder="未公開の本文、編集中の下書き、コピペした文章、AIの出力などをそのまま残せます"></textarea>
-          </label>
-          <label class="full">
-            <span>狙うキーワード</span>
-            <input name="mainKeyword" type="text" placeholder="例: 中学受験 AI / 家庭学習 AI">
-          </label>
-          <label class="full">
-            <span>関連キーワード</span>
-            <textarea name="subKeywords" rows="3" placeholder="例: ChatGPT, Claude, 保護者, 家庭学習, 国語"></textarea>
-          </label>
-          <label>
-            <span>検索ボリューム</span>
-            <input name="searchVolume" type="text" placeholder="例: 100〜1000 / 未確認">
-          </label>
-          <label class="full">
-            <span>参照URL・元記事</span>
-            <textarea name="source" rows="4" placeholder="元記事URL、参考URL、見返したい記事やデータなど"></textarea>
-          </label>
-          <label>
-            <span>使うAI</span>
-            <select name="targetAi">
-              <option value="ChatGPT">ChatGPT</option>
-              <option value="Claude">Claude</option>
-            </select>
-          </label>
-          <label>
-            <span>AIへの頼み方</span>
-            <select name="aiGoal">
-              <option value="rewrite">リライトする</option>
-              <option value="draft">下書きをする</option>
-              <option value="check">チェックする</option>
-            </select>
-          </label>
-          <label>
-            <span>プロンプトの型</span>
-            <select name="promptType">
-              <option value="paid">有料note用</option>
-              <option value="search">検索流入用</option>
-              <option value="rewrite">リライト特化用</option>
-            </select>
-          </label>
+            <div class="capture-box">
+              <h3>URLから記事を追加</h3>
+              <div class="editor-grid">
+                <label class="full">
+                  <span>記事ページURL</span>
+                  <input id="captureUrlInput" type="text" placeholder="例: https://note.com/moco_edu_note/n/xxxxxxxxxxxx">
+                </label>
+                <label class="full">
+                  <span>取り込みメモ</span>
+                  <textarea id="captureMemoInput" rows="3" placeholder="このURLの記事をどう扱いたいかメモ"></textarea>
+                </label>
+                <div class="form-actions full">
+                  <button class="primary-btn" id="captureUrlBtn" type="button">URLから追加</button>
+                </div>
+              </div>
+            </div>
 
-          <div class="form-actions full">
-            <button class="primary-btn" type="submit">保存する</button>
-            <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
-            <button class="ghost-btn" type="button" id="saveDraftBtn">下書き保管にする</button>
-            <button class="ghost-btn" type="button" id="markDoneBtn">投稿完了</button>
-          </div>
-        </form>
-      </section>
+            <form id="itemForm" class="editor-grid">
+              <label class="full">
+                <span>タイトル</span>
+                <input name="title" type="text" required>
+              </label>
+              <label>
+                <span>アカウント</span>
+                <select name="account">
+                  <option value="moco_edu_note">moco_edu_note</option>
+                  <option value="learnfromfailure">learnfromfailure</option>
+                </select>
+              </label>
+              <label>
+                <span>状態</span>
+                <select name="status">
+                  <option value="新規">新規</option>
+                  <option value="リライト">リライト</option>
+                  <option value="下書き">下書き</option>
+                  <option value="公開済み">公開済み</option>
+                </select>
+              </label>
+              <label class="full">
+                <span>本文・メモ</span>
+                <textarea name="body" rows="14" placeholder="下書きや本文、メモをそのまま入れます"></textarea>
+              </label>
+              <label class="full">
+                <span>元記事URL</span>
+                <textarea name="source" rows="3" placeholder="個別記事のURLや参考にしたURLを入れます"></textarea>
+              </label>
+              <label class="full">
+                <span>狙うキーワード</span>
+                <input name="mainKeyword" type="text" placeholder="例: 家庭学習 AI / 中学受験 AI">
+              </label>
+              <label class="full">
+                <span>関連キーワード</span>
+                <textarea name="subKeywords" rows="3" placeholder="例: ChatGPT, 保護者, 学習アプリ"></textarea>
+              </label>
+              <label>
+                <span>検索ボリューム</span>
+                <input name="searchVolume" type="text" placeholder="例: 100〜1000 / 未確認">
+              </label>
+              <label>
+                <span>使うAI</span>
+                <select name="targetAi">
+                  <option value="ChatGPT">ChatGPT</option>
+                  <option value="Claude">Claude</option>
+                </select>
+              </label>
 
-      <section class="panel prompt-panel">
-        <div class="section-head">
-          <div>
-            <h2>AIに渡す文章</h2>
-            <p>項目詳細の内容から自動で作られます。ここをそのまま次のAIに貼れます。</p>
-          </div>
-          <button class="primary-btn" id="copyPromptBtn" type="button">全文コピー</button>
-        </div>
-        <textarea id="promptOutput" rows="14" readonly></textarea>
-        <div class="check-box">
-          <h3>確認ポイント</h3>
-          <ul class="check-list" id="reviewChecklist"></ul>
-        </div>
-      </section>
+              <div class="form-actions full">
+                <button class="primary-btn" type="submit">保存する</button>
+                <button class="ghost-btn" type="button" id="duplicateBtn">複製する</button>
+                <button class="ghost-btn" type="button" id="saveDraftBtn">下書きにする</button>
+                <button class="ghost-btn" type="button" id="markDoneBtn">投稿完了</button>
+                <button class="ghost-btn" type="button" id="goStepTwoBtn">次へ進む</button>
+              </div>
+            </form>
+          </section>
 
-      <section class="panel prompt-panel">
-        <div class="section-head">
-          <div>
-            <h2>メイン画像プロンプト</h2>
-            <p>ChatGPT で画像生成するときのたたき台です。記事内容とキーワードに合わせて自動で作ります。</p>
-          </div>
-          <button class="primary-btn" id="copyImagePromptBtn" type="button">全文コピー</button>
-        </div>
-        <textarea id="imagePromptOutput" rows="10" readonly></textarea>
+          <section class="step-view" id="stepTwoView">
+            <div class="section-head">
+              <div>
+                <h2>依頼内容</h2>
+                <p>AIに何をしてほしいかをここでまとめます。</p>
+              </div>
+            </div>
+
+            <form id="requestForm" class="editor-grid">
+              <label>
+                <span>AIへの頼み方</span>
+                <select name="aiGoal">
+                  <option value="rewrite">リライトする</option>
+                  <option value="draft">下書きをする</option>
+                  <option value="check">チェックする</option>
+                </select>
+              </label>
+              <label>
+                <span>プロンプトの型</span>
+                <select name="promptType">
+                  <option value="paid">有料note用</option>
+                  <option value="search">検索流入用</option>
+                  <option value="rewrite">リライト特化用</option>
+                </select>
+              </label>
+              <label class="full">
+                <span>追加したい内容</span>
+                <textarea name="additions" rows="4" placeholder="足したい情報、具体例、体験談、比較表など"></textarea>
+              </label>
+              <label class="full">
+                <span>削除したい内容</span>
+                <textarea name="removals" rows="4" placeholder="削りたい説明、重複、長すぎる部分など"></textarea>
+              </label>
+              <label class="full">
+                <span>表現を変えたい箇所</span>
+                <textarea name="toneChanges" rows="4" placeholder="やわらかくしたい、断定を弱めたい、もっと強くしたい、など"></textarea>
+              </label>
+              <label class="full">
+                <span>その他依頼</span>
+                <textarea name="extraRequests" rows="4" placeholder="無料部分の見せ方、有料へのつなぎ、タイトル案も欲しい、など"></textarea>
+              </label>
+              <label>
+                <span>画像生成</span>
+                <select name="needImagePrompt">
+                  <option value="yes">あり</option>
+                  <option value="no">なし</option>
+                </select>
+              </label>
+
+              <div class="form-actions full">
+                <button class="ghost-btn" type="button" id="backToStepOneBtn">戻る</button>
+                <button class="primary-btn" type="submit">内容を確定して次へ</button>
+              </div>
+            </form>
+          </section>
+
+          <section class="step-view" id="stepThreeView">
+            <div class="section-head">
+              <div>
+                <h2>プロンプト確認</h2>
+                <p>必要ならここで確認して、そのまま次のAIに貼ります。</p>
+              </div>
+            </div>
+
+            <div class="prompt-stack">
+              <section class="panel nested-panel">
+                <div class="section-head">
+                  <div>
+                    <h2>AIに渡す文章</h2>
+                    <p>本文改善やチェック用の依頼文です。</p>
+                  </div>
+                  <button class="primary-btn" id="copyPromptBtn" type="button">全文コピー</button>
+                </div>
+                <textarea id="promptOutput" rows="14" readonly></textarea>
+              </section>
+
+              <section class="panel nested-panel">
+                <div class="section-head">
+                  <div>
+                    <h2>メイン画像プロンプト</h2>
+                    <p>画像生成が必要なときだけ使います。</p>
+                  </div>
+                  <button class="primary-btn" id="copyImagePromptBtn" type="button">全文コピー</button>
+                </div>
+                <textarea id="imagePromptOutput" rows="10" readonly></textarea>
+              </section>
+
+              <section class="panel nested-panel">
+                <h2>確認ポイント</h2>
+                <ul class="check-list" id="reviewChecklist"></ul>
+              </section>
+            </div>
+
+            <div class="form-actions">
+              <button class="ghost-btn" type="button" id="backToStepTwoBtn">戻る</button>
+            </div>
+          </section>
+        </section>
       </section>
     </main>
   </div>
